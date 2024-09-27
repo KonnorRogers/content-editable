@@ -1,0 +1,1 @@
+export { default as ContentEditable } from "./components/content-editable/content-editable-register.js"
