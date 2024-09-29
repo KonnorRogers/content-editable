@@ -4,9 +4,9 @@
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.metadata.myvariable }}.
 
-title: A kit for reading diffs
+title: A minimal, virtualized, plain text editor for the web.
 logo: "content-editable"
-slogan: Diff with ease
+slogan: A minimal, virtualized, plain text editor for the web.
 email: konnor5456@gmail.com
 description: >- # this means to ignore newlines until "baseurl:"
   Diff with ease

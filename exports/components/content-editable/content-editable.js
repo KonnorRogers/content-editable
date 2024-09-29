@@ -1,7 +1,7 @@
 import { html } from "lit"
 
 import { BaseElement } from "../../../internal/base-element.js";
-import { baseStyles } from "../../styles/base-styles.js";
+import { baseStyles } from "../../styles/base.styles.js";
 import { componentStyles } from "./content-editable.styles.js";
 
 /**
@@ -20,7 +20,12 @@ import { componentStyles } from "./content-editable.styles.js";
  *
  * @cssproperty --example - An example CSS custom property.
  */
-export default class ContentEditable extends BaseElement {
+export default class ContentEditable extends BaseElement
+  .defineProperties(/** @type {const} */ ({
+    value: { attribute: false, initialValue: null },
+    defaultValue: { attribute: "value", initialValue: null },
+  }))
+{
   /**
    * @override
    */
@@ -34,19 +39,15 @@ export default class ContentEditable extends BaseElement {
     componentStyles,
   ]
 
-  /**
-   * @override
-   */
-  static properties = /** @type {const} */ ({
-
-  })
+  constructor () {
+    super()
+    this.defaultValue = this.getAttribute("value")
+  }
 
   /**
    * @override
    */
   render () {
-    return html`
-      <slot></slot>
-    `
+    return html`<pre part="editor" contenteditable="true">${this.value}</pre>`
   }
 }

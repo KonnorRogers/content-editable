@@ -29,6 +29,8 @@ const componentNames = glob
   .sync("../exports/components/*")
   .map((name) => path.parse(name).name);
 
+console.log(path.join(process.env.BASE_PATH, "bridgetown", "static"))
+
 const components = {};
 
 // componentNames.forEach((name) => {

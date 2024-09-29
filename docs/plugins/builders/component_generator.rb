@@ -1,5 +1,4 @@
 require "cgi"
-require "custom_elements_manifest_parser"
 
 class Builders::ComponentGenerator < SiteBuilder
   # Convert a Markdown string into HTML output.

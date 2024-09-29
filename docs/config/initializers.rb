@@ -1,8 +1,14 @@
 Bridgetown.configure do |config|
   config.url = ENV.fetch("URL", "https://konnorrogers.github.io")
-  config.base_path = ENV.fetch("BASE_PATH", "content-editable")
+  config.base_path = ENV.fetch("BASE_PATH", "/content-editable")
   config.base_url = config.url + config.base_path
   init :"bridgetown-quick-search"
+  # init :"bridgetown-routes"
+  template_engine "erb"
+
+  pagination do
+    enabled true
+  end
 
   # init :ssr
   # init :"bridgetown-routes"
