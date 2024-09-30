@@ -10,7 +10,7 @@ importers:
     dependencies:
       konnors-lit-helpers:
         specifier: ^0.1.2
-        version: 0.1.2(lit@3.2.0)
+        version: link:../konnors-lit-helpers
       lit:
         specifier: ^3.2.0
         version: 3.2.0
@@ -1711,11 +1711,6 @@ packages:
   koa@2.15.3:
     resolution: {integrity: sha512-j/8tY9j5t+GVMLeioLaxweJiKUayFhlGqNTzf2ZGwL0ZCQijd2RLHK0SLW5Tsko8YyyqCZC2cojIb0/s62qTAg==}
     engines: {node: ^4.8.4 || ^6.10.1 || ^7.10.1 || >= 8.1.4}
-
-  konnors-lit-helpers@0.1.2:
-    resolution: {integrity: sha512-lq8GY+ZAv6LRQ4P8GAgFkuVVMLk1OY9yMPOZr+W5+MJ6DFsKsIKHno1/3/22FuXl5FcuI9BZicE/tewprfyOow==}
-    peerDependencies:
-      lit: ^3
 
   liftoff@4.0.0:
     resolution: {integrity: sha512-rMGwYF8q7g2XhG2ulBmmJgWv25qBsqRbDn5gH0+wnuyeFt7QBJlHJmtg5qEdn4pN6WVAUMgXnIxytMFRX9c1aA==}
@@ -4477,10 +4472,6 @@ snapshots:
       vary: 1.1.2
     transitivePeerDependencies:
       - supports-color
-
-  konnors-lit-helpers@0.1.2(lit@3.2.0):
-    dependencies:
-      lit: 3.2.0
 
   liftoff@4.0.0:
     dependencies:

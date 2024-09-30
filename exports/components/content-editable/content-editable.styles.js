@@ -7,7 +7,7 @@ export const componentStyles = css`
 
   [part~="editor"] {
     margin: 0;
-    padding: 0;
+    padding: 0.4rem;
     tab-size: var(--tab-size, 2);
     max-height: 400px;
     overflow: auto;
