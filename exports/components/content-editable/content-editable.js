@@ -271,18 +271,18 @@ class History {
         this.maxSize = maxSize
 
         /**
-         * @type {((...args: any[]) => unknown)[]}
+         * @type {any[]}
          */
         this.undoStack = []
 
         /**
-         * @type {((...args: any[]) => unknown)[]}
+         * @type {any[]}
          */
         this.redoStack = []
     }
 
     /**
-     * @template {Record<string, unknown>} T
+     * @template {unknown} T
      * @param {T} val
      */
     undo(val) {
@@ -295,13 +295,14 @@ class History {
     }
 
     /**
-     * @param {(...args: any[]) => unknown} callback
+     * @template {unknown} T
+     * @param {T} obj
      */
-    redo(callback) {
+    redo(obj) {
         const e = this.redoStack.pop();
 
         if (e) {
-            this.undoStack.push(callback)
+            this.undoStack.push(obj)
         }
         return e ? e : {}
     }
@@ -333,8 +334,12 @@ class History {
     }
     ))
 }
-function l(t) {
-    let e = t;
+
+/**
+ * @param {string} str
+ */
+function markdownToHTML(str) {
+    let e = str;
     return e = function(t) {
         return t = t.replaceAll(/&/g, "&amp;"),
         t = t.replaceAll(/</g, "&lt;"),
@@ -412,7 +417,7 @@ function l(t) {
 class Document {
     /**
      * @param {string} content
-     * @param {Element} element
+     * @param {Editor} element
      */
     constructor(content, element) {
         this.content = content
@@ -453,7 +458,7 @@ class Document {
             end: finalString.length + text.length
         };
         this.addHistory(),
-        this.#d(finalString, i)
+        this.#runMutation(finalString, i)
     }
 
 
@@ -465,12 +470,12 @@ class Document {
         this.select(start, end)
 
         if (this.selection.isBulletList) {
-            this.#u()
+            this.handleBulletList()
             return
         }
 
         if (this.selection.isNumberList) {
-            this.#m()
+            this.handleNumberedList()
             return
         }
 
@@ -505,46 +510,48 @@ class Document {
         this.deleteText(start, end)
     }
     toggleBold() {
-        this.#p(this.selection.isBold, "**")
+        this.#toggleSurround(this.selection.isBold, "**")
     }
     toggleItalic() {
-        this.#p(this.selection.isItalic, "_")
+        this.#toggleSurround(this.selection.isItalic, "_")
     }
     toggleStrikethrough() {
-        this.#p(this.selection.isStrikethrough, "~~")
+        this.#toggleSurround(this.selection.isStrikethrough, "~~")
     }
     toggleCode() {
         const [t,e] = this.selection.isMultiline ? ["```\n", "\n```"] : ["`", "`"];
-        this.#p(this.selection.isCode, t, e)
+        this.#toggleSurround(this.selection.isCode, t, e)
     }
     toggleLink() {
-        this.selection.isLink ? this.#g() : this.#v()
+        this.selection.isLink ? this.#removeLink() : this.#addLink()
     }
     toggleQuote() {
-        this.selection.isQuote ? this.#f("> ") : this.#L("> ")
+        this.selection.isQuote ? this.#removeLeadingText("> ") : this.#addLeadingText("> ")
     }
     toggleBulletList() {
-        this.selection.isBulletList ? this.#f("- ") : this.#L("- ")
+        this.selection.isBulletList ? this.#removeLeadingText("- ") : this.#addLeadingText("- ")
     }
     toggleNumberList() {
-        this.selection.isNumberList ? this.#f(/\d+\. /) : this.#L(`${this.#b + 1}. `)
+        this.selection.isNumberList ? this.#removeLeadingText(/\d+\. /) : this.#addLeadingText(`${this.#b + 1}. `)
     }
     undo() {
-        const {content, start, end} = this.history.undo(this.#cloneCurrentSelection);
-        isString(content) && this.#d(content, {
+        const {content, start, end} = this.history.undo(this.#snapshot);
+        isString(content) && this.#runMutation(content, {
             start,
             end
         })
     }
     redo() {
-        const {content: e, start: n, end: s} = this.history.redo(this.#x);
-        t(e) && this.#d(e, {
-            start: n,
-            end: s
+        const {content, start, end} = this.history.redo(this.#snapshot);
+        isString(content) && this.#runMutation(content, {
+            start,
+            end
         })
     }
     render() {
-        this.contentElement.innerHTML = l(this.content) + "<wbr/>"
+        if (this.contentElement) {
+            this.contentElement.innerHTML = markdownToHTML(this.content) + "<wbr>"
+        }
     }
     get isEmpty() {
         return !this.content.trim()
@@ -558,10 +565,10 @@ class Document {
     get currentLine() {
         return this.selection.currentLine()
     }
-    #p(t, e, n=e) {
-        t ? this.#w(e, n) : this.#T(e, n)
+    #toggleSurround(bool, e, n=e) {
+        bool ? this.#removeSurround(e, n) : this.#addSurround(e, n)
     }
-    #T(t, e=t) {
+    #addSurround (t, e=t) {
         const {start: n, end: s, selection: r} = this.currentSelection
           , i = `${t}${r}${e}`;
         this.replaceText(i, n, s),
@@ -570,7 +577,7 @@ class Document {
             end: n + r.length + t.length + e.length
         })
     }
-    #w(t, e=t) {
+    #removeSurround(t, e=t) {
         const {start: n, end: s, selection: r} = this.currentSelection;
         r.startsWith(t) && r.endsWith(e) && (this.replaceText("", s - e.length, s),
         this.replaceText("", n, n + t.length),
@@ -579,7 +586,7 @@ class Document {
             end: s - t.length - e.length
         }))
     }
-    #v() {
+    #addLink() {
         const {start: t, end: e, selection: n} = this.currentSelection
           , s = this.selection.isEmpty
           , r = s ? "title" : n;
@@ -592,20 +599,20 @@ class Document {
             end: t + n.length + 6
         })
     }
-    #g() {
-        const {start: t, end: e, selection: n} = this.currentSelection
-          , s = n.replace(/\[(.*)\]\(.*\)/, "$1");
-        this.replaceText(s, t, e)
+    #removeLink() {
+        const {start, end, selection} = this.currentSelection
+        const str = selection.replace(/\[(.*)\]\(.*\)/, "$1");
+        this.replaceText(str, start, end)
     }
-    #u() {
-        this.#E.match(/^-\s+$/) ? this.deleteCurrentLine() : (this.replaceText("\n", this.currentSelection.end, this.currentSelection.end),
+    handleBulletList() {
+        this.#currentLineContent.match(/^-\s+$/) ? this.deleteCurrentLine() : (this.replaceText("\n", this.currentSelection.end, this.currentSelection.end),
         this.replaceText("- ", this.currentSelection.end + 1, this.currentSelection.end + 1))
     }
-    #m() {
-        this.#E.match(/^\d+\.\s+$/) ? this.deleteCurrentLine() : (this.replaceText("\n", this.currentSelection.end, this.currentSelection.end),
+    handleNumberedList() {
+        this.#currentLineContent.match(/^\d+\.\s+$/) ? this.deleteCurrentLine() : (this.replaceText("\n", this.currentSelection.end, this.currentSelection.end),
         this.replaceText(`${this.#b + 1}. `, this.currentSelection.end + 1, this.currentSelection.end + 1))
     }
-    #L(t) {
+    #addLeadingText(t) {
         const {start: e, end: n} = this.currentSelection
           , s = this.currentLine;
         this.replaceText(t, s.start, s.start),
@@ -614,35 +621,42 @@ class Document {
             end: n + t.length
         })
     }
-    #f(t) {
-        const {start: e, end: n} = this.currentSelection
-          , s = this.currentLine;
-        if (t instanceof RegExp) {
-            const e = s.content.match(t);
+    #removeLeadingText(matcher) {
+        const {start, end} = this.currentSelection
+        const currentLineSelection = this.currentLine;
+        if (matcher instanceof RegExp) {
+            const e = currentLineSelection.content.match(matcher);
             if (!e)
                 return;
-            t = e[0]
+            matcher = e[0]
         }
-        s.content.startsWith(t) && (this.deleteText(s.start, s.start + t.length),
+        currentLineSelection.content.startsWith(matcher) &&
+            (this.deleteText(currentLineSelection.start, currentLineSelection.start + matcher.length),
         this.selection.select({
-            start: e - t.length,
-            end: n - t.length
+            start: start - matcher.length,
+            end: end - matcher.length
         }))
     }
     addHistory() {
-        this.history.add(this.#x)
+        this.history.add(this.#snapshot)
     }
-    #d(t, n) {
-        const s = this.content;
-        this.content = t,
-        this.element.value = t,
-        this.selection.select(n),
+
+    /**
+     * @param {string} str
+     * @param {{start: number, end: number}} selection
+     */
+    #runMutation(str, selection) {
+        const oldContent = this.content;
+        this.content = str
+        this.element.value = str
+        this.selection.select(selection)
+
         emit(this.element, "house-md:change", {
-            previousContent: s,
-            newContent: t
+            previousContent: oldContent,
+            newContent: str
         })
     }
-    get #cloneCurrentSelection() {
+    get #snapshot() {
         const {start, end} = this.currentSelection;
         return {
             content: this.content,
@@ -650,7 +664,7 @@ class Document {
             end,
         }
     }
-    get #E() {
+    get #currentLineContent() {
         return this.currentLine.content
     }
     get #b() {
@@ -700,7 +714,7 @@ class InputHandler {
             const range = evt.getTargetRanges()[0]
 
             const {start, end} = Selection.fromDOMRange(range, element);
-            n.call(this, t, start, end)
+            n.call(this, evt, start, end)
         } else
             console.error("Not handling:", evt.inputType)
     }
@@ -917,7 +931,7 @@ class ActionHandler {
      */
     handleAction (action, params) {
         const fn = this[action];
-        typeof fn === "function" ? fn.call(this, params) : console.error("Not handling:", t)
+        typeof fn === "function" ? fn.call(this, params) : console.error("Not handling:", action)
     }
     bold() {
         this.document.toggleBold()
@@ -1100,5 +1114,7 @@ export default class Editor extends HTMLElement {
         this.document?.selection.update()
     }
 }
+
+
 
 export {Document, Editor, History, Selection};
