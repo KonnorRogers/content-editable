@@ -110,6 +110,22 @@ class Transaction {
     }
   }
 
+  insertLineBreak (selection) {
+    return () => {
+      const {
+        offsetEndLine,
+        offsetEnd,
+      } = this.findSelectionOffsets(selection)
+
+      const line = this.#content[offsetEndLine]
+
+      const lineStart = line.substring(0, offsetEnd)
+      const lineEnd = line.substring(offsetEnd + 1)
+      this.#content[offsetEndLine] = lineStart
+      this.#content.splice(offsetEndLine + 1, 0, "​" + lineEnd)
+    }
+  }
+
   /**
    * @param {Selection} selection
    */
@@ -128,12 +144,10 @@ class Transaction {
       // 7 - 7 none removed
       const linesToRemove = (offsetEndLine - 1) - (offsetStartLine + 1)
 
-      console.log(selection)
       const startText = this.#content[offsetStartLine].substring(0, offsetStart)
       this.#content[offsetStartLine] = startText
       const endLine = this.#content[offsetEndLine]
       const endText = endLine.substring(offsetEnd, endLine.length)
-      console.log({ startText, endText })
       this.#content[offsetEndLine] = endText
       this.#content.splice(offsetStart + 1, linesToRemove)
     }
@@ -240,7 +254,7 @@ export default class ContentEditable extends BaseElement
     this.defaultValue = this.getAttribute("value")
 
     this.#transactions = []
-    this.#content = [""]
+    this.#content = ["​"]
 
     this.newLine = "\n"
     // this.lineStart = `<span part="line">`
@@ -305,10 +319,24 @@ export default class ContentEditable extends BaseElement
     if (currentSelection == null) { return }
     if (currentSelection.endNode == null) { return }
 
-    console.log(currentSelection)
     this.#transactions.push(
-      // this.createTransaction().deleteSelection(currentSelection),
       this.createTransaction().insertText(e.data, currentSelection),
+      this.createTransaction().setCursorPosition(editorElement, currentSelection.end + 1)
+    )
+  }
+
+  /**
+   * @param {Event} e
+   */
+  __insertLineBreak (e) {
+    const editorElement = this.editorElement
+    const currentSelection = this.currentSelection
+
+    if (editorElement == null) { return }
+    if (currentSelection == null) { return }
+
+    this.#transactions.push(
+      this.createTransaction().insertLineBreak(currentSelection),
       this.createTransaction().setCursorPosition(editorElement, currentSelection.end + 1)
     )
   }
@@ -323,6 +351,7 @@ export default class ContentEditable extends BaseElement
   handleBeforeInput (e) {
     if (e.isComposing) { return }
 
+    console.log(e.inputType)
     // All level 2 input types: <https://w3c.github.io/input-events/#interface-InputEvent-Attributes>
     switch (e.inputType) {
  	    // insert typed plain text
@@ -335,12 +364,12 @@ export default class ContentEditable extends BaseElement
  	    // insert a line break
       case "insertLineBreak":
         e.preventDefault()
-        const selection = this.currentSelection
-        if (!selection) { break }
-        // this.#transactions.push(this.createTransaction().insertLineBreak(selection))
+        this.__insertLineBreak(e)
         break;
  	    // insert a paragraph break
       case "insertParagraph":
+        e.preventDefault()
+        this.__insertLineBreak(e)
         break;
  	    // insert a numbered list
       case "insertOrderedList":
@@ -482,26 +511,17 @@ export default class ContentEditable extends BaseElement
   }
 
   renderContent () {
-    return this.#content.map((content) => `<span part="line">${content}</span>`).join("")
-  }
-
-  updated (changedProperties) {
-    super.updated(changedProperties)
-    this.editorElement.innerHTML = this.renderContent()
+    return this.#content.map((content) => html`<div part="line">${content}</div>`)
   }
 
   /**
    * @override
    */
   render () {
-    let extraSpace = ""
-    if (!this.#content[this.#content.length - 1]?.trim()) {
-      extraSpace = "​"
-    }
     return html`<pre
       part="editor"
       contenteditable="true"
       @beforeinput=${this.handleBeforeInput}
-    ></pre>`
+    >${this.renderContent()}</pre>`
   }
 }
