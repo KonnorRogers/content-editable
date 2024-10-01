@@ -31,6 +31,7 @@ class Transaction {
      * @type {Array<string>}
      */
     this.#content = content
+
   }
 
   /**
@@ -198,7 +199,7 @@ class Cursor {
   static setPosition (contentEle, targetPosition) {
     const range = Cursor.createRange(contentEle, targetPosition);
     range.collapse(false)
-    const selection = window.getSelection();
+    const selection = document.getSelection?.() || window.getSelection();
 
     if (!selection) { return }
     selection.removeAllRanges();
@@ -253,12 +254,14 @@ export default class ContentEditable extends BaseElement
     super()
     this.defaultValue = this.getAttribute("value")
 
-    this.#transactions = []
-    this.#content = ["​"]
 
     this.newLine = "\n"
     // this.lineStart = `<span part="line">`
     // this.lineEnd = `</span>`
+
+    this.zeroWidthSpace = "​"
+    this.#content = [this.zeroWidthSpace]
+    this.#transactions = []
   }
 
   get editorElement () {
@@ -278,7 +281,7 @@ export default class ContentEditable extends BaseElement
     const editorElement = this.editorElement
     if (!editorElement) { return null }
 
-    const selection = window.getSelection();
+    const selection = document.getSelection?.() || window.getSelection();
 
     if (!selection) { return null }
 
@@ -511,7 +514,9 @@ export default class ContentEditable extends BaseElement
   }
 
   renderContent () {
-    return this.#content.map((content) => html`<div part="line">${content}</div>`)
+    return this.#content.map((content) => {
+      return html`<div part="line">${content ? content : this.zeroWidthSpace}</div>`
+    })
   }
 
   /**

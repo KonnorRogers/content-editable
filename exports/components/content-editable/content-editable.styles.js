@@ -19,4 +19,8 @@ export const componentStyles = css`
     outline: transparent;
     border: 1px solid dodgerblue;
   }
+
+  [part~="line"] {
+    min-height: 1lh;
+  }
 `
