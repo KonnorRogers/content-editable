@@ -1,3 +1,6 @@
+/**
+ * @param {unknown} t
+ */
 function isString(t) {
     return "string" == typeof t
 }
@@ -193,7 +196,7 @@ class SelectionManager {
         const n = this.#selection;
         t.intersectsNode(this.contentElement) && (this.#selection = Selection.fromDOMRange(t, this.contentElement),
         this.#content = this.#document.content.slice(this.start, this.end)),
-        this.#selection.isEqual(n) || emit(/** @type {Element} */ (this.element), "house-md:selectionchange", {
+        this.#selection.isEqual(n) || emit(/** @type {Element} */ (this.element), "content-editable:selectionchange", {
             start: this.start,
             end: this.end
         })
@@ -550,7 +553,7 @@ class Document {
     }
     render() {
         if (this.contentElement) {
-            this.contentElement.innerHTML = markdownToHTML(this.content) + "<wbr>"
+            this.contentElement.innerHTML = this.content + " "
         }
     }
     get isEmpty() {
@@ -651,7 +654,7 @@ class Document {
         this.element.value = str
         this.selection.select(selection)
 
-        emit(this.element, "house-md:change", {
+        emit(this.element, "content-editable:change", {
             previousContent: oldContent,
             newContent: str
         })
@@ -985,7 +988,7 @@ export default class Editor extends HTMLElement {
 
     connectedCallback() {
         this.setAttribute("role", "textbox")
-        const t = this.querySelector(".house-md-content")?.textContent || this.textContent || "";
+        const t = this.querySelector(".content-editable-content")?.textContent || this.textContent || "";
         this.document = new Document(t,this)
         this.setupDOM()
         this.setupListeners()
@@ -1060,7 +1063,7 @@ export default class Editor extends HTMLElement {
     setupDOM() {
         this.textContent = "",
         this.contentWrapper = document.createElement("div"),
-        this.contentWrapper.classList.add("house-md-content"),
+        this.contentWrapper.classList.add("content-editable-content"),
         this.contentWrapper.setAttribute("contenteditable", "true"),
         this.append(this.contentWrapper),
         this.getAttribute("tabindex") || this.contentWrapper.setAttribute("tabindex", "0")
