@@ -1,153 +1,215 @@
-/**
- * @param {any} t
- */
 function isString(t) {
     return "string" == typeof t
 }
 
-
 /**
  * @param {Element} element
  * @param {string} eventName
- * @param {null | Record<string, unknown>} [detail=null]
+ * @param {Record<string, unknown> | null} [detail=null]
+ * @param {boolean} [cancelable=false]
  */
 function emit(element, eventName, detail=null, cancelable = false) {
-    return element.dispatchEvent(new CustomEvent(eventName ,{
-        bubbles: !0,
+    return element.dispatchEvent(new CustomEvent(eventName,{
+        bubbles: true,
         detail,
-        cancelable,
+        cancelable
     }))
 }
-class Range {
-    start = 0;
-    end = 0;
 
-    static fromDOMRange(t, e) {
-        const {startOffset: n, startContainer: i, endOffset: o, endContainer: l} = t
-          , a = r(e, i, n);
-        if (t.collapsed)
-            return new s(e,a,a);
-        const c = r(e, l, o);
-        return new s(e,a,c)
+class Selection {
+    /**
+     * @param {StaticRange | Range} range
+     * @param {Element} container
+     */
+    static fromDOMRange(range, container) {
+        const {startOffset, startContainer, endOffset, endContainer} = range
+        const selectionStart = findOffset(container, startContainer, startOffset);
+        if (range.collapsed) {
+            return new Selection(container,selectionStart,selectionStart);
+        }
+
+        const selectionEnd = findOffset(container, endContainer, endOffset);
+
+        return new Selection(container, selectionStart, selectionEnd)
     }
-    constructor(t, e, n) {
-        this.container = t,
-        this.start = e,
-        this.end = n
+
+    /**
+     * @param {Node} container
+     * @param {number} [start=0]
+     * @param {number} [end=0]
+     */
+    constructor(container, start, end) {
+        this.container = container,
+        this.start = start || 0
+        this.end = end || 0
     }
     toDOMRange() {
-        const t = document.createRange();
-        t.setStart(this.container, 1),
-        t.setEnd(this.container, this.container.childNodes.length);
+        const range = document.createRange();
+        range.setStart(this.container, 1),
+        range.setEnd(this.container, this.container.childNodes.length);
         const e = document.createTreeWalker(this.container, NodeFilter.SHOW_TEXT);
         let n = 0
           , s = !1
           , r = !1;
         for (; e.nextNode() && (!s || !r); ) {
-            const i = e.currentNode.textContent.length;
+            const i = (e.currentNode.textContent?.length || 0);
             n + i >= this.start && !s && (s = !0,
-            t.setStart(e.currentNode, this.start - n)),
+            range.setStart(e.currentNode, this.start - n)),
             n + i >= this.end && !r && (r = !0,
-            t.setEnd(e.currentNode, this.end - n)),
+            range.setEnd(e.currentNode, this.end - n)),
             n += i
         }
-        return t
+        return range
     }
-    isEqual(t) {
-        return this.container === t.container && this.start === t.start && this.end === t.end
+
+    /**
+     * @param {Selection} selection
+     */
+    isEqual(selection) {
+        return this.container === selection.container && this.start === selection.start && this.end === selection.end
     }
 }
-function r(t, e, n) {
-    return e.nodeType === Node.ELEMENT_NODE ? function(t, e, n) {
-        const s = e.childNodes[n];
-        let r = 0;
-        const i = document.createTreeWalker(t);
-        for (; i.nextNode(); ) {
-            if (i.currentNode === s)
-                return r;
-            i.currentNode.nodeType === Node.TEXT_NODE && (r += i.currentNode.textContent.length)
+
+/**
+ * @param {Node} root
+ * @param {Node} node
+ * @param {number} index
+ */
+function getOffsetFromElement (root, node, index) {
+    const childNode = node.childNodes[index];
+    let offset = 0;
+    const treewalker = document.createTreeWalker(root);
+    while (treewalker.nextNode()) {
+        if (treewalker.currentNode === childNode) {
+            return offset;
         }
-        return r
-    }(t, e, n) : function(t, e, n) {
-        const s = document.createTreeWalker(t, NodeFilter.SHOW_TEXT);
-        for (; s.nextNode(); ) {
-            if (s.currentNode === e)
-                return n;
-            n += s.currentNode.textContent.length
-        }
-        return n
-    }(t, e, n)
+        treewalker.currentNode.nodeType === Node.TEXT_NODE && (offset += (treewalker.currentNode.textContent?.length || 0))
+    }
+    return offset
 }
-class Selection {
-    #o;
-    #l;
-    #a;
-    constructor(t) {
-        this.#o = t,
-        this.#l = new s(this.contentElement,0,0),
-        this.#a = ""
+
+/**
+ * @param {Node} root
+ * @param {Node} node
+ * @param {number} index
+ */
+function getOffsetFromNode(root, node, index) {
+        const treewalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        while (treewalker.nextNode()) {
+            if (treewalker.currentNode === node) {
+                return index;
+            }
+            index += (treewalker.currentNode.textContent?.length || 0)
+        }
+        return index
+    }
+
+
+
+/**
+ * @param {Node} root
+ * @param {Node} node
+ * @param {number} index
+ */
+function findOffset (root, node, index) {
+    return node.nodeType === Node.ELEMENT_NODE ? getOffsetFromElement(root, node, index) : getOffsetFromNode(root, node, index)
+}
+class SelectionManager {
+    #document;
+    #selection;
+    #content;
+
+    /**
+     * @param {Document} document
+     */
+    constructor(document) {
+        this.#document = document
+        this.#selection = new Selection(this.contentElement,0,0),
+        this.#content = ""
     }
     current() {
         return {
             start: this.start,
             end: this.end,
-            selection: this.#a
+            selection: this.#content
         }
     }
     currentLine() {
         return this.lineAt(this.end)
     }
     previousLine() {
-        const {content: t} = this.#o
-          , e = Math.max(t.lastIndexOf("\n", this.start - 1), 0);
-        return this.lineAt(e)
+        const {content} = this.#document
+        const index = Math.max(content.lastIndexOf("\n", this.start - 1), 0);
+        return this.lineAt(index)
     }
-    lineAt(t) {
-        const {content: e} = this.#o
-          , n = Math.max(e.lastIndexOf("\n", t - 1) + 1, 0)
-          , s = e.indexOf("\n", t)
-          , r = -1 === s ? e.length : s + 1;
+
+    /**
+     * @param {number} index
+     */
+    lineAt(index) {
+        const {content} = this.#document
+        const start = Math.max(content.lastIndexOf("\n", index - 1) + 1, 0)
+        const s = content.indexOf("\n", start)
+        const end = -1 === s ? content.length : s + 1;
         return {
-            start: n,
-            end: r,
-            content: e.slice(n, r)
+            start,
+            end,
+            content: content.slice(start, end)
         }
     }
-    select({start: t, end: e}) {
-        this.documentRange = new s(this.contentElement,t,e);
-        const n = this.documentRange.toDOMRange();
-        if (n) {
-            const t = window.getSelection();
-            t.removeAllRanges(),
-            t.addRange(n),
+
+    /**
+     * @param {Object} obj
+     * @param {number} obj.start
+     * @param {number} obj.end
+     */
+    select({start, end}) {
+        this.documentRange = new Selection(this.contentElement,start,end);
+        const range = this.documentRange.toDOMRange();
+        if (range) {
+            const selection = document.getSelection() || window.getSelection();
+            if (!selection) {
+                return
+            }
+
+            selection.removeAllRanges(),
+            selection.addRange(range),
             this.update()
-        } else
-            console.error("Failed to create range", {
-                start: t,
-                end: e
-            })
+            return
+        }
+
+        console.error("Failed to create range", {
+            start,
+            end
+        })
     }
+
     update = () => {
-        const t = document.getSelection()?.getRangeAt(0)
-          , n = this.#l;
-        t.intersectsNode(this.contentElement) && (this.#l = s.fromDOMRange(t, this.contentElement),
-        this.#a = this.#o.content.slice(this.start, this.end)),
-        this.#l.isEqual(n) || emit(this.element, "house-md:selectionchange", {
+        const selection = window.getSelection()
+
+        if (!selection) { return }
+
+        const t = selection.getRangeAt(0)
+        const n = this.#selection;
+        t.intersectsNode(this.contentElement) && (this.#selection = Selection.fromDOMRange(t, this.contentElement),
+        this.#content = this.#document.content.slice(this.start, this.end)),
+        this.#selection.isEqual(n) || emit(/** @type {Element} */ (this.element), "house-md:selectionchange", {
             start: this.start,
             end: this.end
         })
-    };
+    }
+    ;
     get start() {
-        return this.#l.start
+        return this.#selection.start
     }
     get end() {
-        return this.#l.end
+        return this.#selection.end
     }
     get element() {
-        return this.#o.element
+        return this.#document.element
     }
     get contentElement() {
-        return this.#o.contentElement
+        return this.#document.contentElement
     }
     get isEmpty() {
         return this.start === this.end
@@ -156,71 +218,116 @@ class Selection {
         return this.current().selection.includes("\n")
     }
     get isBold() {
-        return this.#c("strong")
+        return this.#isActive("strong")
     }
     get isItalic() {
-        return this.#c("em")
+        return this.#isActive("em")
     }
     get isStrikethrough() {
-        return this.#c("s")
+        return this.#isActive("s")
     }
     get isLink() {
-        return this.#c(".link")
+        return this.#isActive(".link")
     }
     get isCode() {
-        return this.#c(".code")
+        return this.#isActive(".code")
     }
     get isQuote() {
-        return this.#c(".quote")
+        return this.#isActive(".quote")
     }
     get isBulletList() {
-        return this.#c(".ul-li")
+        return this.#isActive(".ul-li")
     }
     get isNumberList() {
-        return this.#c(".ol-li")
+        return this.#isActive(".ol-li")
     }
-    #c(t) {
-      const selection = window.getSelection()
-      if (!selection) { return }
-      /**
-       * @type {HTMLElement | null | Node}
-       */
-      let e = selection.getRangeAt(0).endContainer;
-      if (e.nodeType === Node.TEXT_NODE && (e = e.parentElement) && this.contentElement.contains(e))
-          if (e instanceof HTMLElement) {
-            return !!e.closest(t)
-          }
-      }
+
+    /**
+     * @param {string} selector
+     */
+    #isActive(selector) {
+        const selection = document.getSelection() || window.getSelection()
+        if (!selection) { return }
+
+        /**
+         * @type {Node | Element | null}
+         */
+        let e = selection.getRangeAt(0).endContainer;
+        if (e.nodeType === Node.TEXT_NODE && (e = e.parentElement),
+        this.contentElement.contains(e)) {
+            if (!(e instanceof Element)) { return false }
+
+            return !!e.closest(selector)
+        }
     }
 }
 class History {
     static saveInterval = 1e3;
-    constructor(t=500) {
-        this.maxSize = t,
-        this.undoStack = [],
+
+    /**
+     * @param {number} [maxSize=500]
+     */
+    constructor(maxSize=500) {
+        this.maxSize = maxSize
+
+        /**
+         * @type {((...args: any[]) => unknown)[]}
+         */
+        this.undoStack = []
+
+        /**
+         * @type {((...args: any[]) => unknown)[]}
+         */
         this.redoStack = []
     }
-    undo(t) {
+
+    /**
+     * @template {Record<string, unknown>} T
+     * @param {T} val
+     */
+    undo(val) {
         const e = this.undoStack.pop();
-        return e ? (this.redoStack.push(t),
-        e) : {}
-    }
-    redo(t) {
-        const e = this.redoStack.pop();
-        return e ? (this.undoStack.push(t),
-        e) : {}
-    }
-    add = function(t) {
-        let e;
-        return (...n) => {
-            e || (t(...n),
-            e = setTimeout(( () => {
-                e = null
-            }
-            ), o.saveInterval))
+
+        if (e) {
+            this.redoStack.push(val)
         }
-    }((t => {
-        this.undoStack.push(t),
+        return e ? e : {}
+    }
+
+    /**
+     * @param {(...args: any[]) => unknown} callback
+     */
+    redo(callback) {
+        const e = this.redoStack.pop();
+
+        if (e) {
+            this.undoStack.push(callback)
+        }
+        return e ? e : {}
+    }
+
+    add =
+        /**
+        * @template {(...args: any[]) => any} T
+        * @param {T} callback
+        */
+        function throttle (callback) {
+        /**
+         * @type {null | ReturnType<typeof setTimeout>}
+         */
+        let e;
+        /**
+         * @param {any[]} n
+         */
+        return (...n) => {
+            e || callback(...n)
+
+            e = setTimeout((() => {
+                e = null
+            }), History.saveInterval)
+        }
+    }((callback => {
+        this.undoStack.push(callback),
         this.redoStack = [],
         this.undoStack.length > this.maxSize && this.undoStack.shift()
     }
@@ -303,56 +410,99 @@ function l(t) {
     e
 }
 class Document {
-    constructor(t, e) {
-        this.content = t,
-        this.element = e,
-        this.selection = new i(this),
-        this.history = new o
+    /**
+     * @param {string} content
+     * @param {Element} element
+     */
+    constructor(content, element) {
+        this.content = content
+        this.element = element
+        this.selection = new SelectionManager(this)
+        this.history = new History
     }
-    select(t, e) {
+
+    /**
+     * @param {number} start
+     * @param {number} end
+     */
+    select(start, end) {
         this.selection.select({
-            start: t,
-            end: e
+            start,
+            end
         })
     }
-    insertText(t) {
-        this.replaceText(t, this.currentSelection.start, this.currentSelection.end)
+
+    /**
+     * @param {string} text
+     */
+    insertText(text) {
+        this.replaceText(text, this.currentSelection.start, this.currentSelection.end)
     }
-    replaceText(t, e, n) {
-        const s = this.content.slice(0, e)
-          , r = `${s}${t}${this.content.slice(n)}`
-          , i = {
-            start: s.length + t.length,
-            end: s.length + t.length
+
+    /**
+     * @param {string} text
+     * @param {number} start
+     * @param {number} end
+     */
+    replaceText(text, start, end) {
+        const startString = this.content.slice(0, start)
+        const endString = this.content.slice(end)
+        const finalString = `${startString}${text}${endString}`
+        const i = {
+            start: finalString.length + text.length,
+            end: finalString.length + text.length
         };
-        this.#h(),
-        this.#d(r, i)
+        this.addHistory(),
+        this.#d(finalString, i)
     }
-    insertParagraph(t, e) {
-        this.select(t, e),
-        this.selection.isBulletList ? this.#u() : this.selection.isNumberList ? this.#m() : this.replaceText("\n", t, e)
+
+
+    /**
+     * @param {number} start
+     * @param {number} end
+     */
+    insertParagraph(start, end) {
+        this.select(start, end)
+
+        if (this.selection.isBulletList) {
+            this.#u()
+            return
+        }
+
+        if (this.selection.isNumberList) {
+            this.#m()
+            return
+        }
+
+        this.replaceText("\n", start, end)
     }
-    insertLink(t, e, n="") {
-        const {start: s, end: r} = this.currentSelection
-          , i = ` ${n}[${t}](${e}) `;
-        this.replaceText(i, s, r),
+
+    /**
+     * @param {string} str
+     * @param {string} href
+     * @param {string} [n=""]
+     */
+    insertLink(str, href, n="") {
+        const {start, end} = this.currentSelection
+        const text = ` ${n}[${str}](${href}) `;
+        this.replaceText(text, start, end),
         this.selection.select({
-            start: s + i.length,
-            end: s + i.length
+            start: start + text.length,
+            end: start + text.length
         })
     }
-    insertFile(t, e, n) {
-        n.startsWith("image/") ? this.insertImage(t, e) : this.insertLink(t, e)
+
+    /**
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteText(start, end) {
+        this.replaceText("", Math.max(start, 0), end)
     }
-    insertImage(t, e) {
-        this.insertLink(t, e, "!")
-    }
-    deleteText(t, e) {
-        this.replaceText("", Math.max(t, 0), e)
-    }
+
     deleteCurrentLine() {
-        const {start: t, end: e} = this.currentLine;
-        this.deleteText(t, e)
+        const {start, end} = this.currentLine;
+        this.deleteText(start, end)
     }
     toggleBold() {
         this.#p(this.selection.isBold, "**")
@@ -380,10 +530,10 @@ class Document {
         this.selection.isNumberList ? this.#f(/\d+\. /) : this.#L(`${this.#b + 1}. `)
     }
     undo() {
-        const {content: e, start: n, end: s} = this.history.undo(this.#x);
-        t(e) && this.#d(e, {
-            start: n,
-            end: s
+        const {content, start, end} = this.history.undo(this.#cloneCurrentSelection);
+        isString(content) && this.#d(content, {
+            start,
+            end
         })
     }
     redo() {
@@ -479,7 +629,7 @@ class Document {
             end: n - t.length
         }))
     }
-    #h() {
+    addHistory() {
         this.history.add(this.#x)
     }
     #d(t, n) {
@@ -487,17 +637,17 @@ class Document {
         this.content = t,
         this.element.value = t,
         this.selection.select(n),
-        e(this.element, "house-md:change", {
+        emit(this.element, "house-md:change", {
             previousContent: s,
             newContent: t
         })
     }
-    get #x() {
-        const {start: t, end: e} = this.currentSelection;
+    get #cloneCurrentSelection() {
+        const {start, end} = this.currentSelection;
         return {
             content: this.content,
-            start: t,
-            end: e
+            start,
+            end,
         }
     }
     get #E() {
@@ -508,145 +658,266 @@ class Document {
         return t ? parseInt(t[1]) : 0
     }
 }
-class c {
+class Parser {
     #S;
     constructor(t) {
         this.#S = t
     }
     asPlainText() {
         const t = (new window.DOMParser).parseFromString(this.#S, "text/html");
-        return this.#A(t.body).trim()
+        return this.sanitize(t.body).trim()
     }
-    #A(t) {
-        return t.nodeType === Node.TEXT_NODE ? t.nodeValue : Array.from(t.childNodes).map(( (e, n) => {
-            const s = this.#k(e)
-              , r = n > 0 && this.#k(t.childNodes[n - 1]);
-            return (s && r ? "\n\n" : "") + this.#A(e)
+
+    /**
+     * @param {Node} t
+     */
+    sanitize(t) {
+        return t.nodeType === Node.TEXT_NODE ? t.nodeValue : Array.from(t.childNodes).map(( (node, index) => {
+            const s = this.isAllowedTag(node)
+              , r = n > 0 && this.isAllowedTag(t.childNodes[index - 1]);
+            return (s && r ? "\n\n" : "") + this.sanitize(e)
         }
         )).join("")
     }
-    #k(t) {
+    isAllowedTag(t) {
         return ["BR", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "P", "TR"].includes(t.tagName)
     }
 }
-class h {
+class InputHandler {
     constructor(t) {
         this.document = t
     }
-    handleInput(t, e) {
-        t.preventDefault();
-        const n = this[`${t.inputType}Handler`];
+
+    /**
+     * @param {InputEvent} evt
+     * @param {Element} element
+     */
+    handleInput(evt, element) {
+        evt.preventDefault();
+        const key = /** @type {keyof this} */ (`${evt.inputType}Handler`)
+        const n = /** @type {Function | null} */ (this[key]);
         if (n) {
-            const r = t.getTargetRanges()[0]
-              , {start: i, end: o} = s.fromDOMRange(r, e);
-            n.call(this, t, i, o)
+            const range = evt.getTargetRanges()[0]
+
+            const {start, end} = Selection.fromDOMRange(range, element);
+            n.call(this, t, start, end)
         } else
-            console.error("Not handling:", t.inputType)
+            console.error("Not handling:", evt.inputType)
     }
-    insertTextHandler(t, e, n) {
-        this.#C(t, e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertTextHandler(evt, start, end) {
+        this.insertText(evt, start, end)
     }
-    insertCompositionTextHandler(t, e, n) {
-        this.#C(t, e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertCompositionTextHandler(evt, start, end) {
+        this.insertText(evt, start, end)
     }
-    insertParagraphHandler(t, e, n) {
-        this.document.insertParagraph(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertParagraphHandler(evt, start, end) {
+        this.document.insertParagraph(start, end)
     }
-    insertLinkHandler(t, e, n) {
-        this.#C(t, e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertLinkHandler(evt, start, end) {
+        this.insertText(evt, start, end)
     }
-    insertFromYankHandler(t, e, n) {
-        this.#C(t, e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertFromYankHandler(evt, start, end) {
+        this.insertText(evt, start, end)
     }
-    insertFromDropHandler(t, e, n) {
-        this.#C(t, e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertFromDropHandler(evt, start, end) {
+        this.insertText(evt, start, end)
     }
-    insertFromPasteAsQuotationHandler(t, e, n) {
-        const s = t.dataTransfer.getData("text/plain");
-        this.document.replaceText(`> ${s}`, e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertFromPasteAsQuotationHandler(evt, start, end) {
+        const s = evt.dataTransfer?.getData("text/plain");
+        this.document.replaceText(`> ${s}`, start, end)
     }
-    insertTransposeHandler(t, e, n) {
-        this.#C(t, e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertTransposeHandler(evt, start, end) {
+        this.insertText(evt, start, end)
     }
-    insertReplacementTextHandler(t, e, n) {
-        this.#C(t, e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertReplacementTextHandler(evt, start, end) {
+        this.insertText(evt, start, end)
     }
-    insertFromPasteHandler(t, e, n) {
-        this.#C(t, e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertFromPasteHandler(evt, start, end) {
+        this.insertText(evt, start, end)
     }
-    deleteContentBackwardHandler(t, e, n) {
-        this.document.deleteText(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteContentBackwardHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteByCutHandler(t, e, n) {
-        this.document.deleteText(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteByCutHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteWordBackwardHandler(t, e, n) {
-        this.document.deleteText(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteWordBackwardHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteWordForwardHandler(t, e, n) {
-        this.document.deleteText(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteWordForwardHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteSoftLineBackwardHandler(t, e, n) {
-        this.document.deleteText(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteSoftLineBackwardHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteSoftLineForwardHandler(t, e, n) {
-        this.document.deleteText(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteSoftLineForwardHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteEntireSoftLineHandler(t, e, n) {
-        this.document.deleteText(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteEntireSoftLineHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteHardLineBackwardHandler(t, e, n) {
-        this.document.deleteText(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteHardLineBackwardHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteHardLineForwardHandler(t, e, n) {
-        this.document.deleteText(e, n)
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteHardLineForwardHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteByDragHandler(t, e, n) {
-        this.document.deleteText(e, n)
+
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteByDragHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteContentHandler(t, e, n) {
-        this.document.deleteText(e, n)
+
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteContentHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    deleteContentForwardHandler(t, e, n) {
-        this.document.deleteText(e, n)
+
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    deleteContentForwardHandler(evt, start, end) {
+        this.document.deleteText(start, end)
     }
-    #C(t, e, n) {
-        let s;
-        if (t.data)
-            s = t.data;
-        else {
-            const e = t.dataTransfer.getData("text/html");
-            s = e ? new c(e).asPlainText() : t.dataTransfer.getData("text/plain")
+
+    /**
+     * @param {InputEvent} evt
+     * @param {number} start
+     * @param {number} end
+     */
+    insertText(evt, start, end) {
+        let str;
+        const data = evt.data
+        if (data) {
+            str = data;
+        } else {
+            const e = evt.dataTransfer?.getData("text/html");
+            str = e ? new Parser(e).asPlainText() : evt.dataTransfer?.getData("text/plain")
         }
-        this.document.replaceText(s, e, n)
+        this.document.replaceText(str, start, end)
     }
 }
-class d {
-    constructor(t, e) {
-        this.element = t.closest("house-md"),
-        this.file = e
+class ActionHandler {
+    /**
+     * @param {Document} document
+     */
+    constructor(document) {
+        this.document = document
     }
-    upload() {
-        if (e(this.element, "house-md:before-upload", {
-            file: this.file
-        })) {
-            const t = document.createElement("house-md-upload");
-            t.file = this.file,
-            t.uploadsURL = this.#$,
-            this.element.appendChild(t)
-        }
-    }
-    get #$() {
-        return this.element.dataset.uploadsUrl || document.head.querySelector("meta[name=house-uploads-url]")?.content || "/uploads"
-    }
-}
-class u {
-    constructor(t) {
-        this.document = t
-    }
-    handleAction(t, e) {
-        const n = this[t];
-        n ? n.call(this, e) : console.error("Not handling:", t)
+
+
+    /**
+     * @param {keyof this} action
+     * @param {unknown} [params]
+     */
+    handleAction (action, params) {
+        const fn = this[action];
+        typeof fn === "function" ? fn.call(this, params) : console.error("Not handling:", t)
     }
     bold() {
         this.document.toggleBold()
@@ -678,65 +949,63 @@ class u {
     redo() {
         this.document.redo()
     }
-    uploadFile({file: t}) {
-        new d(this.document.element,t).upload()
-    }
 }
-class m {
-    constructor(t) {
-        this.element = t.closest("house-md")
-    }
-    handleDragOver(t) {
-        t.preventDefault()
-    }
-    async handleDrop(t) {
-        t.preventDefault();
-        for (const e of t.dataTransfer.items)
-            "file" === e.kind && new d(this.element,e.getAsFile()).upload()
-    }
-}
-const p = {
+
+const KEYBINDINGS = /** @type {const} */ ({
     "Ctrl+B": "bold",
     "Ctrl+I": "italic",
     "Ctrl+S": "strikethrough",
     "Ctrl+Z": "undo",
     "Ctrl+Shift+Z": "redo"
-};
-export default class ContentEditable extends HTMLElement {
+});
+export default class Editor extends HTMLElement {
     static formAssociated = true;
     constructor() {
         super()
         this.internals = this.attachInternals(),
         this.internals.role = "textbox"
+
+        this.addEventListener("beforeinput", this.handleBeforeInput)
+        this.addEventListener("keydown", this.handleKeydown)
     }
+
     connectedCallback() {
-        const t = this.querySelector(".house-md-content")?.textContent || this.textContent;
-        this.document = new a(t,this),
-        this.#H(),
-        this.#y(),
-        this.inputHandler = new h(this.document),
-        this.actionHandler = new u(this.document),
-        this.dropAndDropHandler = new m(this),
-        this.autofocus && this.focus(),
+        this.setAttribute("role", "textbox")
+        const t = this.querySelector(".house-md-content")?.textContent || this.textContent || "";
+        this.document = new Document(t,this)
+        this.setupDOM()
+        this.setupListeners()
+        this.inputHandler = new InputHandler(this.document)
+        this.actionHandler = new ActionHandler(this.document)
+        this.autofocus && this.focus()
         this.setAttribute("initialized", ""),
         this.value = t
     }
     disconnectedCallback() {
-        this.#N()
+        this.removeListeners()
     }
-    validate = t => {
-        this.required && this.document.isEmpty ? (t.preventDefault(),
+
+    /**
+     * @param {Event} evt
+     */
+    validate = (evt) => {
+        this.required && this.document?.isEmpty ? (evt.preventDefault(),
         this.internals.setValidity({
-            valueMissing: !0
-        }, "This field is required.", this.element),
+            valueMissing: true
+        }, "This field is required.", this),
         this.focus()) : this.internals.setValidity({})
     }
     ;
     render() {
-        this.document.render()
+        this.document?.render()
     }
-    focus() {
-        this.contentWrapper.focus()
+
+    /**
+     * @override
+     * @param {FocusOptions} [options]
+     */
+    focus(options) {
+        this.contentWrapper?.focus(options)
     }
     get required() {
         return this.hasAttribute("required")
@@ -744,94 +1013,92 @@ export default class ContentEditable extends HTMLElement {
     set required(t) {
         t ? this.setAttribute("required", "") : this.removeAttribute("required")
     }
+
+    /**
+     * @override
+     */
     get autofocus() {
         return this.hasAttribute("autofocus")
     }
+
+    /**
+     * @override
+     */
     set autofocus(t) {
         t ? this.setAttribute("autofocus", "") : this.removeAttribute("autofocus")
     }
     get value() {
-        return this.document.content
+        return this.document?.content
     }
-    set value(t) {
-        this.document.content = t,
-        this.internals.setFormValue(t),
-        this.internals.setValidity({}),
+    set value(val) {
+        const doc = this.document
+        if (!doc) { return }
+
+        doc.content = val || ""
+        this.internals.setFormValue(val || "")
+        this.internals.setValidity({})
         this.render()
     }
+
     get form() {
         return this.internals.form
     }
-    #H() {
+    setupDOM() {
         this.textContent = "",
-        this.toolbar = this.#_(),
         this.contentWrapper = document.createElement("div"),
         this.contentWrapper.classList.add("house-md-content"),
-        this.contentWrapper.setAttribute("contenteditable", !0),
+        this.contentWrapper.setAttribute("contenteditable", "true"),
         this.append(this.contentWrapper),
-        this.getAttribute("tabindex") || this.contentWrapper.setAttribute("tabindex", 0)
+        this.getAttribute("tabindex") || this.contentWrapper.setAttribute("tabindex", "0")
     }
-    #_() {
-        if (this.getAttribute("toolbar"))
-            return document.getElementById(this.getAttribute("toolbar"));
-        {
-            const t = document.createElement("house-md-toolbar");
-            return this.prepend(t),
-            t
+    setupListeners() {
+        document.addEventListener("selectionchange", this.handleSelectionChange)
+        // this.internals.form.addEventListener("submit", this.validate)
+    }
+    removeListeners() {
+        document.removeEventListener("selectionchange", this.handleSelectionChange)
+        // this.internals.form.removeEventListener("submit", this.validate)
+    }
+
+    /**
+     * @param {InputEvent} evt
+     */
+    handleBeforeInput = (evt) => {
+        if (this.inputHandler && this.contentWrapper) {
+            this.inputHandler.handleInput(evt, this.contentWrapper)
         }
     }
-    #y() {
-        this.addEventListener("beforeinput", this.#D),
-        this.addEventListener("keydown", this.#I),
-        this.addEventListener("dragover", this.#B),
-        this.addEventListener("drop", this.#F),
-        this.toolbar.addEventListener("house-md:toolbar-action", this.#R),
-        document.addEventListener("selectionchange", this.#M),
-        this.internals.form.addEventListener("submit", this.validate)
+
+    /**
+     * @param {KeyboardEvent} evt
+     */
+    handleKeydown (evt) {
+        const pressedKeys = [];
+
+        if (evt.metaKey || evt.ctrlKey) {
+            pressedKeys.push("Ctrl")
+        }
+
+        if (evt.altKey) {
+            pressedKeys.push("Alt")
+        }
+
+        if (evt.shiftKey) {
+            pressedKeys.push("Shift")
+        }
+
+        const key = evt.key.toUpperCase()
+        pressedKeys.push(key)
+        const keybinding = /** @type {keyof KEYBINDINGS} */ (pressedKeys.join("+"))
+        const action = KEYBINDINGS[keybinding]
+
+        action && evt.preventDefault()
+        action && this.actionHandler?.handleAction(action)
     }
-    #N() {
-        this.removeEventListener("beforeinput", this.#D),
-        this.removeEventListener("keydown", this.#I),
-        this.removeEventListener("dragover", this.#B),
-        this.removeEventListener("drop", this.#F),
-        this.toolbar.removeEventListener("house-md:toolbar-action", this.#R),
-        document.removeEventListener("selectionchange", this.#M),
-        this.internals.form.removeEventListener("submit", this.validate)
-    }
-    #D = t => {
-        this.inputHandler.handleInput(t, this.contentWrapper)
-    }
-    ;
-    #I(t) {
-        const e = function(t) {
-            return p[function(t) {
-                const e = [];
-                return (t.metaKey || t.ctrlKey) && e.push("Ctrl"),
-                t.altKey && e.push("Alt"),
-                t.shiftKey && e.push("Shift"),
-                e.push(t.key.toUpperCase()),
-                e.join("+")
-            }(t)]
-        }(t);
-        e && (t.preventDefault(),
-        this.actionHandler.handleAction(e))
-    }
-    #B = t => {
-        this.dropAndDropHandler.handleDragOver(t)
-    }
-    ;
-    #F = t => {
-        this.dropAndDropHandler.handleDrop(t)
-    }
-    ;
-    #R = ({detail: t}) => {
-        this.actionHandler.handleAction(t.houseMdAction, t)
-    }
-    ;
-    #M = () => {
-        this.document.selection.update()
+
+    handleSelectionChange = () => {
+        this.document?.selection.update()
     }
 }
-customElements.define("house-md", ContentEditable);
-export {Document, ContentEditable, History, i as Selection};
 
+export {Document, Editor, History, Selection};
