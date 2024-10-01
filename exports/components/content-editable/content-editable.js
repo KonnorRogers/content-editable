@@ -553,7 +553,7 @@ class Document {
     }
     render() {
         if (this.contentElement) {
-            this.contentElement.innerHTML = this.content + " "
+            this.contentElement.innerHTML = markdownToHTML(this.content) + "<wbr>"
         }
     }
     get isEmpty() {
