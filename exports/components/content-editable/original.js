@@ -1,52 +1,71 @@
-import { css, html, LitElement } from "lit";
-import {componentStyles} from './content-editable.styles.js'
-import { baseStyles } from "../../styles/base.styles.js";
-
 function t(t) {
     return "string" == typeof t
 }
-
-
-/**
- * @param {Element} element
- * @param {string} eventName
- * @param {CustomEvent["detail"] | null} [detail=null]
- * @param {boolean} [cancelable=false]
- */
-function emit(element, eventName, detail=null, cancelable=false) {
-    return element.dispatchEvent(new CustomEvent(eventName,{
-        bubbles: true,
-        detail,
-        cancelable
+function e(t, e, n=null, s=!1) {
+    return t.dispatchEvent(new CustomEvent(e,{
+        bubbles: !0,
+        detail: n,
+        cancelable: s
     }))
 }
-
-class SelectionHelper {
-    /**
-     * @param {Range} range
-     * @param {Element} container
-     */
-    static fromDOMRange(range, container) {
-        const {startOffset, startContainer, endOffset, endContainer} = range
-        const start = findOffset(container, startContainer, startOffset);
-
-        if (range.collapsed) {
-            return new SelectionHelper(container,start,start);
-        }
-
-        const end = findOffset(container, endContainer, endOffset);
-        return new SelectionHelper(container,start,end)
+class n extends HTMLElement {
+    constructor() {
+        super()
     }
-
-    /**
-     * @param {Element} container
-     * @param {number} start
-     * @param {number} end
-     */
-    constructor(container, start, end) {
-        this.start = start || 0;
-        this.end = end || 0;
-        this.container = container
+    connectedCallback() {
+        this.#t(),
+        this.addEventListener("click", this.#e),
+        this.#n?.addEventListener("change", this.#s)
+    }
+    disconnectedCallback() {
+        this.#n?.removeEventListener("change", this.#s),
+        this.removeEventListener("click", this.#e)
+    }
+    get #n() {
+        return this.querySelector("[data-house-md-toolbar-file-picker]")
+    }
+    #t() {
+        this.#r() && (this.innerHTML = this.#i())
+    }
+    #e = t => {
+        const n = t.target.closest("[data-house-md-action]")?.dataset?.houseMdAction;
+        n && (t.preventDefault(),
+        e(this, "house-md:toolbar-action", {
+            houseMdAction: n
+        }))
+    }
+    ;
+    #s = t => {
+        for (const n of t.target.files)
+            e(this, "house-md:toolbar-action", {
+                houseMdAction: "uploadFile",
+                file: n
+            })
+    }
+    ;
+    #r() {
+        return 0 === this.children.length
+    }
+    #i() {
+        return '\n        <button data-house-md-action="bold" title="Bold">\n          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="m4.1 23c-.5 0-.7-.4-.7-.7v-20.6c0-.4.4-.7.7-.7h8.9c2 0 3.8.6 4.9 1.5 1.2 1 1.8 2.4 1.8 4.1s-.9 3.2-2.3 4.1c-.2 0-.3.3-.3.5s0 .4.3.5c1.9.8 3.2 2.7 3.2 5s-.7 3.6-2.1 4.7-3.3 1.7-5.6 1.7h-8.8zm4.2-18.1v5.1h3c1.2 0 2-.3 2.7-.7.6-.5.9-1.1.9-1.9s-.3-1.4-.8-1.8-1.3-.6-2.3-.6-2.4 0-3.5 0zm0 8.5v5.8h3.7c1.3 0 2.2-.3 2.8-.7s.9-1.2.9-2.2-.4-1.7-1-2.1-1.7-.7-2.9-.7-2.4 0-3.5 0z" fill-rule="evenodd"/></svg>\n        </button>\n        <button data-house-md-action="italic" title="Italic">\n          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="m9.3 1h10.2v3.1h-3.5l-3.7 15.7h3.2v3.2h-11v-3.1h3.8l3.7-15.7h-2.8v-3.2z" fill-rule="evenodd"/></svg>\n        </button>\n        <button data-house-md-action="quote" title="Quote">\n          <svg viewBox="0 0 24 22" xmlns="http://www.w3.org/2000/svg"><path d="m1.1 5.2c.6-.7 1.4-1.3 2.4-1.4 2.6-.4 4.2.4 5.3 1.9 2 2.3 1.9 5.1.6 7.6-1.3 2.4-4 4.6-7.2 5.1-.4 0-.7-.1-1-.4-.1-.3-.1-.7.3-1.1l1.1-1.1c.3-.4.6-.7.7-1.1s.3-.9 0-1.3c0-.4-.6-.7-1-1-1.2-.8-2.3-2.2-2.3-4.1.1-1.4.4-2.4 1.1-3.1z"/><path d="m14.6 5.2c.6-.7 1.6-1.1 2.6-1.4 2.4-.4 4.2.4 5.3 1.9 2 2.3 1.9 5.1.6 7.6-1.3 2.4-4 4.6-7.2 5.1-.4 0-.7-.1-1-.4-.1-.3-.1-.7.3-1.1l1.1-1.1c.3-.4.6-.7.7-1.1s.3-.9 0-1.3c-.1-.4-.6-.7-1-1-1.3-.6-2.4-2-2.4-3.9s.4-2.6 1-3.3z"/></svg>\n        </button>\n        <button data-house-md-action="code" title="Code">\n          <svg viewBox="0 0 24 22" xmlns="http://www.w3.org/2000/svg"><path d="m.4 10.1c-.5.5-.5 1.4 0 1.9l5.3 5.3c.5.5 1.4.5 1.9 0s.5-1.4 0-1.9l-4.4-4.4 4.4-4.4c.5-.5.5-1.4 0-1.9s-1.3-.5-1.9 0c0 0-5.3 5.4-5.3 5.4zm17.9 7.2 5.3-5.3c.5-.5.5-1.4 0-1.9l-5.3-5.3c-.5-.5-1.4-.5-1.9 0s-.5 1.4 0 1.9l4.4 4.4-4.4 4.4c-.5.5-.5 1.4 0 1.9.5.4 1.4.4 1.9-.1z" fill-rule="evenodd"/></svg>\n        </button>\n        <button data-house-md-action="link" title="Link">\n          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="m9.4 14.5c-2.3-2.3-2.3-5.9 0-8.2l4.6-4.6c1.1-1 2.6-1.7 4.2-1.7s3 .5 4.1 1.7c2.3 2.3 2.3 5.9 0 8.2l-2.7 2.3c-.5.5-1.2.5-1.8 0-.5-.5-.5-1.2 0-1.7l2.7-2.3c1.4-1.3 1.4-3.4 0-4.7-.7-.7-1.5-.9-2.3-.9s-1.8.4-2.5.9l-4.7 4.5c-1.4 1.3-1.4 3.4 0 4.7.5.5.5 1.2 0 1.7-.1.3-.4.4-.8.4s-.5-.1-.8-.3z"/><path d="m1.7 22.3c-2.3-2.3-2.3-5.9 0-8.2l2.6-2.5c.5-.5 1.2-.5 1.8 0 .5.5.5 1.2 0 1.7l-2.6 2.5c-1.4 1.3-1.4 3.4 0 4.7.7.7 1.5.9 2.3.9s1.8-.4 2.3-.9l4.6-4.6c1.4-1.3 1.4-3.4 0-4.7-.5-.4-.5-1.2 0-1.7s1.2-.5 1.8 0c2.3 2.3 2.3 5.9 0 8.2l-4.6 4.6c-1 1-2.5 1.7-4.1 1.7s-3-.7-4.1-1.7z"/></svg>\n        </button>\n        <button data-house-md-action="bulletList" title="Bullet list">\n          <svg viewBox="0 0 24 22" xmlns="http://www.w3.org/2000/svg"><path d="m2.1 4.8c1.1 0 2.1-.9 2.1-2.1s-1-2-2.1-2-2.1.9-2.1 2.1.9 2 2.1 2zm4.1-2c0-.8.6-1.4 1.4-1.4h15.1c.7 0 1.3.6 1.3 1.4s-.6 1.4-1.4 1.4h-15.1c-.7 0-1.3-.7-1.3-1.4zm1.3 6.8c-.8 0-1.4.6-1.4 1.4s.6 1.4 1.4 1.4h15.1c.8 0 1.4-.6 1.4-1.4s-.6-1.4-1.4-1.4zm0 8.3c-.8 0-1.4.6-1.4 1.4s.6 1.4 1.4 1.4h15.1c.8 0 1.4-.6 1.4-1.4s-.6-1.4-1.4-1.4zm-3.4-6.9c0 1.1-.9 2.1-2.1 2.1s-2-1-2-2.1.9-2.1 2.1-2.1 2 1 2 2.1zm-2 10.3c1.1 0 2.1-.9 2.1-2.1s-.9-2.1-2.1-2.1-2.1 1-2.1 2.1.9 2.1 2.1 2.1z" fill-rule="evenodd"/></svg>\n        </button>\n        <button data-house-md-action="numberList" title="Numbered list">\n          <svg viewBox="0 0 24 22" xmlns="http://www.w3.org/2000/svg"><path d="m0 .3h2.7v5.3h-1.4v-4h-1.3zm6.7 2.7c0-.7.6-1.3 1.3-1.3h14.7c.7 0 1.3.6 1.3 1.3s-.6 1.3-1.3 1.3h-14.7c-.7 0-1.3-.6-1.3-1.3zm1.3 6.7c-.7 0-1.3.6-1.3 1.3s.6 1.3 1.3 1.3h14.7c.7 0 1.3-.6 1.3-1.3s-.6-1.3-1.3-1.3zm0 8c-.7 0-1.3.6-1.3 1.3s.6 1.3 1.3 1.3h14.7c.7 0 1.3-.6 1.3-1.3s-.6-1.3-1.3-1.3zm-4.7-9.4h.7v1.3l-2 2.7h2v1.3h-4v-1.3l2.2-2.7h-2.2v-1.3zm-3.3 9.4v-1.3h4v5.3h-4v-1.3h2.7v-.7h-1.4v-1.3h1.3v-.7z" fill-rule="evenodd"/></svg>\n        </button>\n        <label title="Add Image">\n          <svg viewBox="0 0 24 20" xmlns="http://www.w3.org/2000/svg"><path d="m22 20h-20c-1.1 0-2-.9-2-2.1v-15.8c0-1.2.9-2.1 2-2.1h20c1.1 0 2 .9 2 2.1v15.8c0 1.1-.9 2.1-2 2.1zm0-2.9v-14.5c0-.3-.2-.5-.5-.5h-19c-.3 0-.5.2-.5.5v14.5c0 .1.1.2.2.2s.2 0 .2-.1l2.2-3.3c.1-.2.3-.3.5-.3h.7l2.6-4c.1-.2.3-.3.5-.3h.7c.2 0 .4.1.5.3l5.3 8c0 .1.2.2.3.2h.3c.2 0 .4-.2.4-.4s0-.2 0-.2l-1.3-1.9c-.2-.2-.2-.6 0-.8l1.2-1.6c.1-.2.3-.3.5-.3h1.1c.2 0 .4 0 .5.3l3.2 4.4c0 .1.3.2.4 0 .2 0 .2 0 .2-.2zm-5.5-7.6c-1.4 0-2.5-1.2-2.5-2.6s1.1-2.6 2.5-2.6 2.5 1.2 2.5 2.6-1.1 2.6-2.5 2.6z" fill-rule="evenodd"/></svg>\n          <input type="file" data-house-md-toolbar-file-picker multiple style="display: none;">\n        </label>'
+    }
+}
+customElements.define("house-md-toolbar", n);
+class s {
+    start = 0;
+    end = 0;
+    static fromDOMRange(t, e) {
+        const {startOffset: n, startContainer: i, endOffset: o, endContainer: l} = t
+          , a = r(e, i, n);
+        if (t.collapsed)
+            return new s(e,a,a);
+        const c = r(e, l, o);
+        return new s(e,a,c)
+    }
+    constructor(t, e, n) {
+        this.container = t,
+        this.start = e,
+        this.end = n
     }
     toDOMRange() {
         const t = document.createRange();
@@ -54,11 +73,10 @@ class SelectionHelper {
         t.setEnd(this.container, this.container.childNodes.length);
         const e = document.createTreeWalker(this.container, NodeFilter.SHOW_TEXT);
         let n = 0
-        let s = false
-        let r = false
-
-        while (e.nextNode() && (!s || !r)) {
-            const i = e.currentNode?.textContent?.length || 0;
+          , s = !1
+          , r = !1;
+        for (; e.nextNode() && (!s || !r); ) {
+            const i = e.currentNode.textContent.length;
             n + i >= this.start && !s && (s = !0,
             t.setStart(e.currentNode, this.start - n)),
             n + i >= this.end && !r && (r = !0,
@@ -67,45 +85,30 @@ class SelectionHelper {
         }
         return t
     }
-
-    /**
-     * @param {SelectionHelper} selection
-     */
-    isEqual(selection) {
-        return this.container === selection.container && this.start === selection.start && this.end === selection.end
+    isEqual(t) {
+        return this.container === t.container && this.start === t.start && this.end === t.end
     }
 }
-
-/**
- * @param {Element | Node} container
- * @param {Element | Node} offsetContainer
- * @param {number} offset
- */
-    // t, e, n
-function findOffset(container, offsetContainer, offset) {
-    if (offsetContainer.nodeType === Node.ELEMENT_NODE) {
-        const startNode = offsetContainer.childNodes[offset];
-        let finalOffset = 0;
-        const treewalker = document.createTreeWalker(container);
-        while (treewalker.nextNode()) {
-            if (treewalker.currentNode === startNode) { return finalOffset; }
-
-            // Keep walking until we get to a text node
-            if (treewalker.currentNode.nodeType === Node.TEXT_NODE ) {
-                finalOffset += treewalker.currentNode?.textContent?.length || 0
-            }
+function r(t, e, n) {
+    return e.nodeType === Node.ELEMENT_NODE ? function(t, e, n) {
+        const s = e.childNodes[n];
+        let r = 0;
+        const i = document.createTreeWalker(t);
+        for (; i.nextNode(); ) {
+            if (i.currentNode === s)
+                return r;
+            i.currentNode.nodeType === Node.TEXT_NODE && (r += i.currentNode.textContent.length)
         }
-        return finalOffset
-    }
-
-    const treewalker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-    while (treewalker.nextNode()) {
-        if (treewalker.currentNode === offsetContainer) {
-            return offset;
+        return r
+    }(t, e, n) : function(t, e, n) {
+        const s = document.createTreeWalker(t, NodeFilter.SHOW_TEXT);
+        for (; s.nextNode(); ) {
+            if (s.currentNode === e)
+                return n;
+            n += s.currentNode.textContent.length
         }
-        offset += treewalker.currentNode?.textContent?.length || 0
-    }
-    return offset
+        return n
+    }(t, e, n)
 }
 class i {
     #o;
@@ -113,7 +116,7 @@ class i {
     #a;
     constructor(t) {
         this.#o = t,
-        this.#l = new SelectionHelper(this.contentElement,0,0),
+        this.#l = new s(this.contentElement,0,0),
         this.#a = ""
     }
     current() {
@@ -143,7 +146,7 @@ class i {
         }
     }
     select({start: t, end: e}) {
-        this.documentRange = new SelectionHelper(this.contentElement,t,e);
+        this.documentRange = new s(this.contentElement,t,e);
         const n = this.documentRange.toDOMRange();
         if (n) {
             const t = window.getSelection();
@@ -159,9 +162,9 @@ class i {
     update = () => {
         const t = document.getSelection()?.getRangeAt(0)
           , n = this.#l;
-        t.intersectsNode(this.contentElement) && (this.#l = SelectionHelper.fromDOMRange(t, this.contentElement),
+        t.intersectsNode(this.contentElement) && (this.#l = s.fromDOMRange(t, this.contentElement),
         this.#a = this.#o.content.slice(this.start, this.end)),
-        this.#l.isEqual(n) || emit(this.element, "house-md:selectionchange", {
+        this.#l.isEqual(n) || e(this.element, "house-md:selectionchange", {
             start: this.start,
             end: this.end
         })
@@ -510,7 +513,7 @@ class a {
         this.content = t,
         this.element.value = t,
         this.selection.select(n),
-        emit(this.element, "house-md:change", {
+        e(this.element, "house-md:change", {
             previousContent: s,
             newContent: t
         })
@@ -561,7 +564,7 @@ class h {
         const n = this[`${t.inputType}Handler`];
         if (n) {
             const r = t.getTargetRanges()[0]
-              , {start: i, end: o} = SelectionHelper.fromDOMRange(r, e);
+              , {start: i, end: o} = s.fromDOMRange(r, e);
             n.call(this, t, i, o)
         } else
             console.error("Not handling:", t.inputType)
@@ -644,7 +647,25 @@ class h {
         this.document.replaceText(s, e, n)
     }
 }
-
+class d {
+    constructor(t, e) {
+        this.element = t.closest("house-md"),
+        this.file = e
+    }
+    upload() {
+        if (e(this.element, "house-md:before-upload", {
+            file: this.file
+        })) {
+            const t = document.createElement("house-md-upload");
+            t.file = this.file,
+            t.uploadsURL = this.#$,
+            this.element.appendChild(t)
+        }
+    }
+    get #$() {
+        return this.element.dataset.uploadsUrl || document.head.querySelector("meta[name=house-uploads-url]")?.content || "/uploads"
+    }
+}
 class u {
     constructor(t) {
         this.document = t
@@ -707,27 +728,14 @@ const p = {
     "Ctrl+Z": "undo",
     "Ctrl+Shift+Z": "redo"
 };
-export default class ContentEditable extends LitElement {
-    static formAssociated = true;
-
-    /**
-     * @override
-     */
-    static styles = [
-        baseStyles,
-        componentStyles,
-    ]
+class g extends HTMLElement {
+    static formAssociated = !0;
     constructor() {
-        super()
-        this.internals = this.attachInternals()
-        this.internals.role = "textbox"
+        super(),
+        this.internals = this.attachInternals(),
+        this.internals.ariaRole = "textbox"
     }
-
-    /**
-     * @override
-     */
     connectedCallback() {
-        super.connectedCallback()
         const t = this.querySelector(".house-md-content")?.textContent || this.textContent;
         this.document = new a(t,this),
         this.#H(),
@@ -749,52 +757,30 @@ export default class ContentEditable extends LitElement {
         }, "This field is required.", this.element),
         this.focus()) : this.internals.setValidity({})
     }
-
-
-    /**
-     * @override
-     */
+    ;
     render() {
-        this.document?.render()
-        return html`<slot></slot>`
+        this.document.render()
     }
-
-    /**
-     * @override
-     * @param {FocusOptions} [options]
-     */
-    focus(options) {
-        this.contentWrapper?.focus(options)
+    focus() {
+        this.contentWrapper.focus()
     }
-
     get required() {
         return this.hasAttribute("required")
     }
     set required(t) {
         t ? this.setAttribute("required", "") : this.removeAttribute("required")
     }
-
-    /**
-     * @override
-     */
     get autofocus() {
         return this.hasAttribute("autofocus")
     }
-
-    /**
-     * @override
-     */
     set autofocus(t) {
         t ? this.setAttribute("autofocus", "") : this.removeAttribute("autofocus")
     }
-
     get value() {
-        return this.document?.content
+        return this.document.content
     }
     set value(t) {
-        if (this.document) {
-            this.document.content = t
-        }
+        this.document.content = t,
         this.internals.setFormValue(t),
         this.internals.setValidity({}),
         this.render()
@@ -804,30 +790,42 @@ export default class ContentEditable extends LitElement {
     }
     #H() {
         this.textContent = "",
+        this.toolbar = this.#_(),
         this.contentWrapper = document.createElement("div"),
         this.contentWrapper.classList.add("house-md-content"),
-        this.contentWrapper.setAttribute("contenteditable", "true"),
+        this.contentWrapper.setAttribute("contenteditable", !0),
         this.append(this.contentWrapper),
-        this.getAttribute("tabindex") || this.contentWrapper.setAttribute("tabindex", "0")
+        this.getAttribute("tabindex") || this.contentWrapper.setAttribute("tabindex", 0)
+    }
+    #_() {
+        if (this.getAttribute("toolbar"))
+            return document.getElementById(this.getAttribute("toolbar"));
+        {
+            const t = document.createElement("house-md-toolbar");
+            return this.prepend(t),
+            t
+        }
     }
     #y() {
         this.addEventListener("beforeinput", this.#D),
         this.addEventListener("keydown", this.#I),
         this.addEventListener("dragover", this.#B),
         this.addEventListener("drop", this.#F),
+        this.toolbar.addEventListener("house-md:toolbar-action", this.#R),
         document.addEventListener("selectionchange", this.#M),
-        this.internals.form?.addEventListener("submit", this.validate)
+        this.internals.form.addEventListener("submit", this.validate)
     }
     #N() {
         this.removeEventListener("beforeinput", this.#D),
         this.removeEventListener("keydown", this.#I),
         this.removeEventListener("dragover", this.#B),
         this.removeEventListener("drop", this.#F),
+        this.toolbar.removeEventListener("house-md:toolbar-action", this.#R),
         document.removeEventListener("selectionchange", this.#M),
-        this.internals.form?.removeEventListener("submit", this.validate)
+        this.internals.form.removeEventListener("submit", this.validate)
     }
     #D = t => {
-        this.inputHandler?.handleInput(t, this.contentWrapper)
+        this.inputHandler.handleInput(t, this.contentWrapper)
     }
     ;
     #I(t) {
@@ -860,5 +858,113 @@ export default class ContentEditable extends LitElement {
         this.document.selection.update()
     }
 }
-customElements.define("content-editable", ContentEditable);
-// export {a as Document, g as Editor, o as History, i as Selection, n as Toolbar, v as Upload};
+customElements.define("house-md", g);
+class v extends HTMLElement {
+    #z;
+    #$;
+    #O;
+    constructor() {
+        super(),
+        this.percentComplete = 0,
+        this.status = "pending"
+    }
+    connectedCallback() {
+        this.#t(),
+        this.#W(),
+        this.addEventListener("click", this.#e)
+    }
+    disconnectedCallback() {
+        this.removeEventListener("click", this.#e)
+    }
+    async #W() {
+        const t = new FormData;
+        t.append("file", this.file),
+        this.csrfParamName && t.append(this.csrfParamName, this.csrfToken),
+        this.xhr = new XMLHttpRequest,
+        this.xhr.open("POST", this.uploadsURL, !0),
+        this.xhr.upload.onprogress = this.#q,
+        this.xhr.onload = this.#P,
+        this.xhr.onerror = this.#U,
+        this.xhr.onabort = this.#K,
+        this.xhr.send(t),
+        this.status = "uploading",
+        this.#t()
+    }
+    #t() {
+        this.setAttribute("status", this.status),
+        this.innerHTML = `\n      ${this.#Q()}\n      ${this.#V()}\n      ${this.#X()}\n      ${this.#j()}\n    `
+    }
+    #Q() {
+        return "failed" === this.status ? "<button data-md-action='close' class='md-close' aria-label='Close'></button>" : ""
+    }
+    #V() {
+        return `<div class="md-file">${this.file.name}</div>`
+    }
+    #X() {
+        return `<progress aria-label="Uploading file…" class="md-progress-bar" max="100" value="${this.percentComplete}">${this.percentComplete}%</progress>`
+    }
+    #j() {
+        return this.#O ? `<div class="md-error">${this.#O}</div>` : ""
+    }
+    #q = t => {
+        t.lengthComputable && (this.percentComplete = t.loaded / t.total * 100),
+        this.#t()
+    }
+    ;
+    #P = async () => {
+        if (this.xhr.status >= 400)
+            this.status = "failed",
+            this.#O = this.xhr.responseText || "Upload failed";
+        else {
+            const t = JSON.parse(this.xhr.responseText);
+            await this.document.insertFile(t.fileName, t.fileUrl, t.mimetype),
+            this.status = "complete",
+            this.#Z()
+        }
+        this.#t()
+    }
+    ;
+    #U = () => {
+        this.status = "failed",
+        this.#t()
+    }
+    ;
+    #K = () => {
+        this.status = "aborted",
+        this.#t()
+    }
+    ;
+    #e = t => {
+        t.target.matches("[data-md-action=close]") && this.remove()
+    }
+    ;
+    async #Z(t=500) {
+        await function(t) {
+            return new Promise((e => setTimeout(e, t)))
+        }(t),
+        this.remove()
+    }
+    get document() {
+        return this.closest("house-md").document
+    }
+    get file() {
+        return this.#z
+    }
+    set file(t) {
+        this.#z = t
+    }
+    get uploadsURL() {
+        return this.#$
+    }
+    set uploadsURL(t) {
+        this.#$ = t
+    }
+    get csrfParamName() {
+        return document.head.querySelector("meta[name=csrf-param]")?.content
+    }
+    get csrfToken() {
+        return document.head.querySelector("meta[name=csrf-token]")?.content
+    }
+}
+customElements.define("house-md-upload", v);
+export {a as Document, g as Editor, o as History, i as Selection, n as Toolbar, v as Upload};

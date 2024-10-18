@@ -1,22 +1,33 @@
 import { css } from "lit"
 
 export const componentStyles = css`
-  :host {
-    display: block;
-  }
+:root {
+  --house-border-radius: 0.5em;
+}
 
-  [part~="editor"] {
-    margin: 0;
-    padding: 0.4rem;
-    tab-size: var(--tab-size, 2);
-    max-height: 400px;
-    overflow: auto;
-    min-height: 200px;
-    border: 1px solid red;
-  }
+:host {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 
-  [part~="editor"]:is(:focus-within) {
-    outline: transparent;
-    border: 1px solid dodgerblue;
-  }
+}
+
+:host:invalid {
+  border: var(--color-negative) 2px solid;
+}
+
+/* Markdown Content */
+::slotted(*) {
+  caret-color: var(--color-link);
+  flex-grow: 1;
+  min-block-size: 50dvh;
+  text-align: start;
+  white-space: break-spaces;
+}
+
+::slotted(*:focus),
+::slotted(*:active) {
+  border: none;
+  outline: transparent;
+}
 `
