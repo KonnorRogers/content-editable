@@ -121,7 +121,7 @@ class RangeHelper {
         const treewalker = document.createTreeWalker(this.container);
 
         range.setStart(this.container, 1)
-        range.setEnd(this.container, this.container.childNodes.length)
+        range.setEnd(this.container, this.container.childNodes.length / 2)
         let offset = 0
         let startFound = false
         let endFound = false
@@ -129,7 +129,11 @@ class RangeHelper {
         while (treewalker.nextNode() && (!startFound || !endFound)) {
             if (treewalker.currentNode.nodeType !== Node.TEXT_NODE) { continue }
 
-            const textLength = treewalker.currentNode?.textContent?.length || 1;
+            if (treewalker.currentNode?.parentElement?.closest("[part~='gutter']")) {
+                continue
+            }
+
+            const textLength = treewalker.currentNode?.textContent?.length || 0;
 
             if (!startFound && offset + textLength >= this.start) {
                 startFound = true
@@ -177,6 +181,10 @@ function findOffset(container, offsetContainer, offset) {
 
             // Keep walking until we get to a text node or new line.
             if (treewalker.currentNode.nodeType === Node.TEXT_NODE) {
+                if (treewalker.currentNode?.parentElement?.closest("[part~='gutter']")) {
+                    continue
+                }
+
                 finalOffset += (treewalker.currentNode?.textContent?.length || 1)
             }
         }
@@ -190,6 +198,11 @@ function findOffset(container, offsetContainer, offset) {
         }
 
         if (treewalker.currentNode.nodeType !== Node.TEXT_NODE) { continue }
+        if (treewalker.currentNode?.parentElement?.closest("[part~='gutter']")) {
+            continue
+        }
+
+
         offset += (treewalker.currentNode?.textContent?.length || 1)
     }
     return offset
@@ -293,13 +306,6 @@ class SelectionHelper {
         if (typeof selection.getComposedRanges === "function") {
             const staticRange = selection.getComposedRanges(this.contentEditableElement.getRootNode())[0]
             if (!staticRange) { return }
-
-            range = selection.setBaseAndExtent(
-                staticRange.startContainer,
-                staticRange.startOffset,
-                staticRange.endContainer,
-                staticRange.endOffset
-            )
 
             hasNode = selection.containsNode(this.contentEditableElement)
         } else {
@@ -445,7 +451,7 @@ class ContentDocument {
         this.selection = new SelectionHelper(this, { eventPrefix: this.eventPrefix })
         this.history = new ContentDocumentHistory
 
-        this.gutterStart = `<div part="gutter">`
+        this.gutterStart = `<div part="gutter" readonly contenteditable="false">`
         this.gutterEnd = `</div>`
         this.lineStart = `<div part="line">`
         this.lineEnd = `</div>`
@@ -483,9 +489,6 @@ class ContentDocument {
             end: before.length + text.length
         };
 
-
-        console.log({ before: before.length, text: text.length, after: after.length })
-        console.log(newText.length, text.length, selection)
         this.addHistory()
         this.updateEditor(newText, selection)
     }
@@ -555,12 +558,14 @@ class ContentDocument {
         const lines = escapedHTML.split(/\n/)
         const lastLineIsEmpty = lines.length > 1 && !(lines[lines.length - 1])
         lines.forEach((content, index) => {
-            if (this.lineNumbersElement) {
-                // (index + 1).toString()
-                // lineNumbers.push(this.gutterStart + "" + this.gutterEnd)
-            }
+            // if (this.lineNumbersElement) {
+            //     // (index + 1).toString()
+            //     // lineNumbers.push(this.gutterStart + "" + this.gutterEnd)
+            // }
 
             lineContents.push(
+                // (index + 1).toString()
+                this.gutterStart + (index + 1).toString() + this.gutterEnd +
                 this.lineStart + (content + "\n") + this.lineEnd
             )
         })
@@ -677,17 +682,28 @@ class ContentDocument {
             const { start, end } = selection
             this.selection.select({ start, end })
 
-            // const parentRect = this.contentEditableElement.getBoundingClientRect()
-            // const selectionRect = this.selection.rangeHelper.toDOMRange().getBoundingClientRect()
+            const contentEditableElement = this.contentEditableElement
+            const scroller = contentEditableElement.parentElement
+            const scrollerRect = scroller.getBoundingClientRect()
+            const selectionRect = this.selection.rangeHelper.toDOMRange().getBoundingClientRect()
 
+            // TODO: Need to calculate height change here...
+            // let top = selectionRect.top - scrollerRect.top + selectionRect.height
+            const scrollHeight = Math.round(scroller.scrollHeight)
+            const selectionTop = selectionRect.top
 
-            // this.cursorElement.style.top = `${selectionRect.top - parentRect.top}px`
+            const scrollTop = Math.round(scroller.scrollTop)
+            console.log({
+                scrollHeight,
+                selectionTop,
+                scrollTop,
+            })
 
-            // if (selectionRect.top > parentRect.top + parentRect.height) {
-            //     this.cursorElement.scrollIntoView({ block: "nearest" })
+            // if (cursorTop > scrollTop) {
+                const cursor = cursorTop
+                scroller.scrollTo(0, cursor);
             // }
 
-            this.contentEditableElement.dispatchEvent(changeEvent)
         }
 
         if (typeof render === "object" && "then" in render) {
@@ -908,7 +924,8 @@ class InputHandler {
      * @param {number} end
      */
     deleteContentBackward(_evt, start, end) {
-        if (this.document.currentLine.content === "​") {
+        console.log(this.document.currentLine)
+        if (this.document.currentLine.content === "​" || this.document.currentLine.content === "​\n") {
             console.log("has zwsp")
             start -= 1
         }

@@ -21,25 +21,24 @@
       flex-grow: 2;
       flex-shrink: 0;
       display: grid;
-      grid-template-columns: auto;
+      grid-template-columns: auto auto;
       place-content: start;
       white-space: pre;
       word-wrap: normal;
       min-height: 100%;
       padding: 4px 0;
       outline: none;
-    counter-reset: line;
     }
 
-    [contenteditable="true"] > [part~="gutter"]::before {
+    [contenteditable="true"] > [part~="gutter"] {
+      -webkit-user-select: none;
       user-select: none;
-      counter-increment: line;
-      content: counter(line);
+      text-align: end;
       display: inline-block;
       border-right: 1px solid #ddd;
       padding: 0 .5em;
-      margin-right: .5em;
       color: #888;
+      font-variant-numeric: tabular-nums;
     }
     [contenteditable="true"] > [part~="line"] {
       min-height: 1lh;
@@ -60,7 +59,7 @@
       position: relative;
       z-index: 0;
       overflow-anchor: none;
-      max-block-size:  50dvh;
+      max-block-size:  500px;
     }
 
     </style>

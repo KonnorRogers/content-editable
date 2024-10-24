@@ -21,9 +21,9 @@ class Builders::ComponentGenerator < SiteBuilder
     # end
 
     generator do
-      hook(:site, :after_init) { generate_component_data }
-      hook(:site, :after_reset) { generate_component_data }
-      hook(:site, :after_soft_reset) { generate_component_data }
+      # hook(:site, :after_init) { generate_component_data }
+      # hook(:site, :after_reset) { generate_component_data }
+      # hook(:site, :after_soft_reset) { generate_component_data }
 
       generate_component_data
     end
