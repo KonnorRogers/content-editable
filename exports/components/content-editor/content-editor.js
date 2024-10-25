@@ -680,29 +680,23 @@ class ContentDocument {
 
         const sync = () => {
             const { start, end } = selection
+
+            setTimeout(() => {
             this.selection.select({ start, end })
+            // const contentEditableElement = this.contentEditableElement
+            // const scroller = contentEditableElement.parentElement
+            // const scrollerRect = scroller.getBoundingClientRect()
+            // const selectionRect = this.selection.rangeHelper.toDOMRange().getClientRects()[0]
 
-            const contentEditableElement = this.contentEditableElement
-            const scroller = contentEditableElement.parentElement
-            const scrollerRect = scroller.getBoundingClientRect()
-            const selectionRect = this.selection.rangeHelper.toDOMRange().getBoundingClientRect()
+            // // TODO: Need to calculate height change here...
+            // let top = selectionRect.top - scrollerRect.top
+            // console.log(top)
 
-            // TODO: Need to calculate height change here...
-            // let top = selectionRect.top - scrollerRect.top + selectionRect.height
-            const scrollHeight = Math.round(scroller.scrollHeight)
-            const selectionTop = selectionRect.top
-
-            const scrollTop = Math.round(scroller.scrollTop)
-            console.log({
-                scrollHeight,
-                selectionTop,
-                scrollTop,
+            // this.cursorElement.style.top = `${top}px`
+            // this.cursorElement.scrollIntoView()
             })
+            // scroller.scrollTo(0, top)
 
-            // if (cursorTop > scrollTop) {
-                const cursor = cursorTop
-                scroller.scrollTo(0, cursor);
-            // }
 
         }
 
