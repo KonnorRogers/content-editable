@@ -213,6 +213,38 @@ class SelectionHelper {
     }
 
     /**
+     * @param {Range | null | undefined} [range]
+     */
+    getCurrentLineNumber (range) {
+        if (!range) {
+            const rangeHelper = new RangeHelper(this.contentEditableElement,this.start,this.end);
+            range = rangeHelper.toDOMRange();
+        }
+
+        if (range.collapsed) {
+            const lineEl = range.endContainer?.parentElement?.closest("[part~='line']")
+            const children = this.contentEditableElement.children
+            const index = Array.prototype.indexOf.call(children, lineEl)
+            let lineNumber = null
+            if (index >= 0) {
+                lineNumber = ((index - 1) / 2) + 1
+                return lineNumber
+            }
+            return null
+        }
+
+        return null
+    }
+
+    /**
+     * @param {number} lineNumber
+     */
+    setActiveLineNumber (lineNumber) {
+      Array.prototype.forEach.call(this.contentEditableElement.children, (el) => el.part.remove("active-line"))
+      this.contentEditableElement.children[((lineNumber - 1) * 2) + 1].part.add("active-line")
+    }
+
+    /**
      * @param {Object} options
      * @param {number} options.start
      * @param {number} options.end
@@ -228,17 +260,6 @@ class SelectionHelper {
                 end
             })
             return
-        }
-
-        if (range.collapsed) {
-            const lineEl = range.endContainer?.parentElement?.closest("[part~='line']")
-            const children = this.contentEditableElement.children
-            const index = Array.prototype.indexOf.call(children, lineEl)
-            let lineNumber = null
-            if (index >= 0) {
-                lineNumber = (index - 1) / 2
-                children[(lineNumber * 2) + 1].part.add("active-line")
-            }
         }
 
         const caretRect = range.getBoundingClientRect();
@@ -306,7 +327,14 @@ class SelectionHelper {
         if (hasNode) {
             this.rangeHelper = RangeHelper.fromDOMRange(range, this.contentEditableElement)
             this.selection = this.document.content.slice(this.start, this.end)
+
+            const lineNumber = this.getCurrentLineNumber(this.rangeHelper.toDOMRange())
+
+            if (lineNumber) {
+                this.setActiveLineNumber(lineNumber)
+            }
         }
+
 
         if (this.rangeHelper.isEqual(rangeHelper)) { return }
 
@@ -1042,7 +1070,7 @@ export default class ContentEditorElement extends LitElement {
      * @override
      */
     render() {
-        return html`<div contenteditable="true" ${ref(/** @type {any} */ (this.contentEditableChanged))}></div>`
+        return html`<div contenteditable="true" draggable="false" ${ref(/** @type {any} */ (this.contentEditableChanged))}></div>`
     }
 
     /**
@@ -1202,6 +1230,12 @@ export class ContentEditor {
      * @param {KeyboardEvent} evt
      */
     handleKeydown (evt) {
+        if (evt.key === "ArrowRight") {
+            console.log(this.document.currentLine)
+        }
+        if (evt.key === "ArrowLeft") {
+            console.log(this.document.currentLine)
+        }
         const keyboardEvt = /** @type {KeyboardEvent} */ (evt)
         const keybinding = this.normalizeKeybinding(keyboardEvt)
 
