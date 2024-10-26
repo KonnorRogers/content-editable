@@ -1,4 +1,5 @@
 import { html, LitElement } from "lit";
+import { ref } from 'lit/directives/ref.js';
 import {componentStyles} from './content-editor.styles.js'
 import { baseStyles } from "../../styles/base.styles.js";
 
@@ -229,13 +230,25 @@ class SelectionHelper {
             return
         }
 
+        if (range.collapsed) {
+            const lineEl = range.endContainer?.parentElement?.closest("[part~='line']")
+            const children = this.contentEditableElement.children
+            const index = Array.prototype.indexOf.call(children, lineEl)
+            let lineNumber = null
+            if (index >= 0) {
+                lineNumber = (index - 1) / 2
+                children[(lineNumber * 2) + 1].part.add("active-line")
+            }
+        }
+
         const caretRect = range.getBoundingClientRect();
         const containerRect = this.contentEditableElement.getBoundingClientRect();
 
         // Calculate if the caret is out of view
+        // TODO: Calculate right / left scrolling as well.
         if (caretRect.bottom > containerRect.bottom) {
             // Scroll down
-            this.contentEditableElement.scrollTop += caretRect.bottom - containerRect.bottom;
+            this.contentEditableElement.scrollTop += caretRect.bottom - containerRect.bottom + (caretRect.height / 2);
         } else if (caretRect.bottom + containerRect.height < containerRect.bottom) {
             // Scroll up normal. We're at the "top" of the contenteditable.
             this.contentEditableElement.scrollTop -= containerRect.top - caretRect.top;
@@ -259,8 +272,6 @@ class SelectionHelper {
             selection.removeAllRanges()
             selection.addRange(range)
         }
-
-
 
         this.update()
     }
@@ -404,7 +415,6 @@ class ContentDocumentHistory {
  * @typedef {Object} ContentDocumentOptions
  * @property {string} content - initial string
  * @property {HTMLElement} contentEditableElement - The actual "contenteditable" element.
- * @property {HTMLElement} [lineNumbersElement] - Element containing line numbers. This needs to be separate of contenteditable so we don't mess up calculations.
  * @property {string} [eventPrefix="content-editor"]
  */
 
@@ -415,11 +425,12 @@ class ContentDocument {
     constructor(options) {
         this.content = options.content
         this.contentEditableElement = options.contentEditableElement
-        this.lineNumbersElement = options.lineNumbersElement
         this.eventPrefix = options.eventPrefix ?? "content-editor-"
 
         this.selection = new SelectionHelper(this, { eventPrefix: this.eventPrefix })
         this.history = new ContentDocumentHistory
+
+        this.gutterStart = `<div part="gutter">`
 
         this.gutterStart = `<div part="gutter" readonly contenteditable="false">`
         this.gutterEnd = `</div>`
@@ -518,26 +529,15 @@ class ContentDocument {
     }
 
     render() {
-        const escapedHTML = this.escapeHTML(this.content)
-
-        /** @type {Array<string>} */
-        const lineContents = []
-
-        const lines = escapedHTML.split(/\n/)
-        lines.forEach((content, index) => {
-            // if (this.lineNumbersElement) {
-            //     // (index + 1).toString()
-            //     // lineNumbers.push(this.gutterStart + "" + this.gutterEnd)
-            // }
-
-            lineContents.push(
-                // (index + 1).toString()
-                this.gutterStart + (index + 1).toString() + this.gutterEnd +
-                this.lineStart + (content + "\n") + this.lineEnd
-            )
+        const lines = this.content.split(/\n/).map((content, index) => {
+            const lineNumber = (index + 1).toString()
+            const gutter = `${this.gutterStart}${lineNumber}${this.gutterEnd}`
+            const line = `${this.lineStart}${content + "\n"}${this.lineEnd}`
+            return `${gutter}${line}`
         })
 
-        this.contentEditableElement.innerHTML = lineContents.join("")
+        this.contentEditableElement.textContent = ""
+        this.contentEditableElement.innerHTML = lines.join("")
     }
 
     get isEmpty() {
@@ -549,7 +549,6 @@ class ContentDocument {
     get currentLine() {
         return this.selection.currentLine()
     }
-
 
     /**
      * @param {boolean} bool
@@ -870,8 +869,8 @@ class InputHandler {
      * @param {number} end
      */
     deleteContentBackward(_evt, start, end) {
+        // I still haven't figured out a good alternative to the "zero width white space" problem when dealing with new lines.
         if (this.document.currentLine.content === "\n" || this.document.currentLine.content === zeroWidthWhitespace) {
-            console.log("has zwsp")
             start -= 1
         }
         this.document.deleteText(start, end)
@@ -1017,19 +1016,18 @@ export default class ContentEditorElement extends LitElement {
      */
     connectedCallback() {
         super.connectedCallback()
-        this.setupEditor()
 
-        const content = this.querySelector("[contenteditable='true']")?.textContent || "";
+        this.updateComplete.then(() => {
+            this.contentEditor = new ContentEditor({
+                eventPrefix: this.eventPrefix,
+                content: this.value || "",
+                contentEditableElement: /** @type {HTMLElement} */ (this.contentEditableElement),
+            })
 
-        this.contentEditor = new ContentEditor({
-            eventPrefix: this.eventPrefix,
-            content,
-            contentEditableElement: /** @type {HTMLElement} */ (this.contentEditableElement),
+            this.autofocus && this.focus()
+            this.setAttribute("initialized", "")
+            this.value = this.contentEditor.content
         })
-
-        this.autofocus && this.focus()
-        this.setAttribute("initialized", "")
-        this.value = this.contentEditor.content
     }
 
     /**
@@ -1040,19 +1038,18 @@ export default class ContentEditorElement extends LitElement {
         super.disconnectedCallback()
     }
 
-    // validate = t => {
-    //     this.required && this.document.isEmpty ? (t.preventDefault(),
-    //     this.internals.setValidity({
-    //         valueMissing: true
-    //     }, "This field is required.", this),
-    //     this.focus()) : this.internals.setValidity({})
-    // }
-
     /**
      * @override
      */
     render() {
-        return html`<slot></slot>`
+        return html`<div contenteditable="true" ${ref(/** @type {any} */ (this.contentEditableChanged))}></div>`
+    }
+
+    /**
+     * @param {HTMLElement} contentEditableElement
+     */
+    contentEditableChanged (contentEditableElement) {
+        this.contentEditableElement = contentEditableElement
     }
 
     /**
@@ -1105,19 +1102,6 @@ export default class ContentEditorElement extends LitElement {
     }
     get form() {
         return this.internals.form
-    }
-    setupEditor () {
-        this.contentEditableElement = /** @type {HTMLElement} */ (this.querySelector("[contenteditable='true']") || document.createElement("div"))
-        this.contentEditableElement.setAttribute("contenteditable", "true")
-        if (this.contentEditableElement && !this.contentEditableElement.isConnected) {
-            this.append(this.contentEditableElement)
-        }
-
-        this.lineNumbersElement = this.querySelector(".line-numbers") || document.createElement("div")
-        this.lineNumbersElement.classList.add("line-numbers")
-        if (this.lineNumbersElement && !this.lineNumbersElement.isConnected) {
-            this.append(this.lineNumbersElement)
-        }
     }
 }
 
