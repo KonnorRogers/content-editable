@@ -1,59 +1,8 @@
-import { css, html, LitElement } from "lit";
+import { html, LitElement } from "lit";
 import {componentStyles} from './content-editor.styles.js'
 import { baseStyles } from "../../styles/base.styles.js";
 
-/**
- * @param {Node} node
- */
-function nextNode(node) {
-    if (node.hasChildNodes()) {
-        return node.firstChild;
-    } else {
-        while (node && !node.nextSibling) {
-            node = node.parentNode;
-        }
-        if (!node) {
-            return null;
-        }
-        return node.nextSibling;
-    }
-}
-
-function getRangeSelectedNodes(range) {
-    var node = range.startContainer;
-    var endNode = range.endContainer;
-
-    // Special case for a range that is contained within a single node
-    if (node == endNode) {
-        return [node];
-    }
-
-    // Iterate nodes until we hit the end container
-    var rangeNodes = [];
-    while (node && node != endNode) {
-        rangeNodes.push( node = nextNode(node) );
-    }
-
-    // Add partially selected nodes at the start of the range
-    node = range.startContainer;
-    while (node && node != range.commonAncestorContainer) {
-        rangeNodes.unshift(node);
-        node = node.parentNode;
-    }
-
-    return rangeNodes;
-}
-
-function getSelectedNodes() {
-    var sel = window.getSelection();
-    if (!sel) { return [] }
-
-
-    if (!sel.isCollapsed) {
-        return getRangeSelectedNodes(sel.getRangeAt(0));
-    }
-    return [];
-}
+const zeroWidthWhitespace = "​"
 
 class BaseEvent extends CustomEvent {
     /**
@@ -127,13 +76,15 @@ class RangeHelper {
         let endFound = false
 
         while (treewalker.nextNode() && (!startFound || !endFound)) {
-            if (treewalker.currentNode.nodeType !== Node.TEXT_NODE) { continue }
+            if (
+                treewalker.currentNode.nodeType !== Node.TEXT_NODE
+            ) { continue }
 
             if (treewalker.currentNode?.parentElement?.closest("[part~='gutter']")) {
                 continue
             }
 
-            const textLength = treewalker.currentNode?.textContent?.length || 0;
+            let textLength = treewalker.currentNode?.textContent?.length || 0;
 
             if (!startFound && offset + textLength >= this.start) {
                 startFound = true
@@ -185,7 +136,9 @@ function findOffset(container, offsetContainer, offset) {
                     continue
                 }
 
-                finalOffset += (treewalker.currentNode?.textContent?.length || 1)
+                let textLength = (treewalker.currentNode?.textContent?.length || 0)
+
+                finalOffset += textLength
             }
         }
         return finalOffset
@@ -202,8 +155,9 @@ function findOffset(container, offsetContainer, offset) {
             continue
         }
 
+        let textLength = treewalker.currentNode?.textContent?.length || 0
 
-        offset += (treewalker.currentNode?.textContent?.length || 1)
+        offset += textLength
     }
     return offset
 }
@@ -266,8 +220,8 @@ class SelectionHelper {
         if (!this.contentEditableElement) { return }
 
         this.documentRange = new RangeHelper(this.contentEditableElement,start,end);
-        const n = this.documentRange.toDOMRange();
-        if (!n) {
+        const range = this.documentRange.toDOMRange();
+        if (!range) {
             console.error("Failed to create range", {
                 start,
                 end
@@ -275,6 +229,20 @@ class SelectionHelper {
             return
         }
 
+        const caretRect = range.getBoundingClientRect();
+        const containerRect = this.contentEditableElement.getBoundingClientRect();
+
+        // Calculate if the caret is out of view
+        if (caretRect.bottom > containerRect.bottom) {
+            // Scroll down
+            this.contentEditableElement.scrollTop += caretRect.bottom - containerRect.bottom;
+        } else if (caretRect.bottom + containerRect.height < containerRect.bottom) {
+            // Scroll up normal. We're at the "top" of the contenteditable.
+            this.contentEditableElement.scrollTop -= containerRect.top - caretRect.top;
+        } else if (caretRect.top < containerRect.top) {
+            // Scroll up + 1 extra line.
+            this.contentEditableElement.scrollTop -= containerRect.top - caretRect.top - (caretRect.height);
+        }
 
         const selection = document.getSelection();
 
@@ -282,15 +250,17 @@ class SelectionHelper {
 
         if (typeof selection.setBaseAndExtent === "function") {
             selection.setBaseAndExtent(
-                n.startContainer,
-                n.startOffset,
-                n.endContainer || n.startContainer,
-                n.endOffset || n.startOffset
+                range.startContainer,
+                range.startOffset,
+                range.endContainer || range.startContainer,
+                range.endOffset || range.startOffset
             )
         } else {
             selection.removeAllRanges()
-            selection.addRange(n)
+            selection.addRange(range)
         }
+
+
 
         this.update()
     }
@@ -303,8 +273,10 @@ class SelectionHelper {
 
         let hasNode = false
 
-        if (typeof selection.getComposedRanges === "function") {
-            const staticRange = selection.getComposedRanges(this.contentEditableElement.getRootNode())[0]
+        const rootNode = this.contentEditableElement.getRootNode()
+        // Special handling of shadow dom in safari.
+        if (typeof selection.getComposedRanges === "function" && rootNode instanceof ShadowRoot) {
+            const staticRange = selection.getComposedRanges(rootNode)[0]
             if (!staticRange) { return }
 
             hasNode = selection.containsNode(this.contentEditableElement)
@@ -432,7 +404,6 @@ class ContentDocumentHistory {
  * @typedef {Object} ContentDocumentOptions
  * @property {string} content - initial string
  * @property {HTMLElement} contentEditableElement - The actual "contenteditable" element.
- * @property {HTMLElement} cursorElement - The cursor used for scrolling
  * @property {HTMLElement} [lineNumbersElement] - Element containing line numbers. This needs to be separate of contenteditable so we don't mess up calculations.
  * @property {string} [eventPrefix="content-editor"]
  */
@@ -444,7 +415,6 @@ class ContentDocument {
     constructor(options) {
         this.content = options.content
         this.contentEditableElement = options.contentEditableElement
-        this.cursorElement = options.cursorElement
         this.lineNumbersElement = options.lineNumbersElement
         this.eventPrefix = options.eventPrefix ?? "content-editor-"
 
@@ -499,7 +469,7 @@ class ContentDocument {
      */
     insertParagraph(start, end) {
         this.select(start, end)
-        this.replaceText("\n​", start, end)
+        this.replaceText("\n" + zeroWidthWhitespace, start, end)
     }
 
     /**
@@ -551,12 +521,9 @@ class ContentDocument {
         const escapedHTML = this.escapeHTML(this.content)
 
         /** @type {Array<string>} */
-        const lineNumbers = []
-        /** @type {Array<string>} */
         const lineContents = []
 
         const lines = escapedHTML.split(/\n/)
-        const lastLineIsEmpty = lines.length > 1 && !(lines[lines.length - 1])
         lines.forEach((content, index) => {
             // if (this.lineNumbersElement) {
             //     // (index + 1).toString()
@@ -681,23 +648,8 @@ class ContentDocument {
         const sync = () => {
             const { start, end } = selection
 
-            setTimeout(() => {
             this.selection.select({ start, end })
-            // const contentEditableElement = this.contentEditableElement
-            // const scroller = contentEditableElement.parentElement
-            // const scrollerRect = scroller.getBoundingClientRect()
-            // const selectionRect = this.selection.rangeHelper.toDOMRange().getClientRects()[0]
-
-            // // TODO: Need to calculate height change here...
-            // let top = selectionRect.top - scrollerRect.top
-            // console.log(top)
-
-            // this.cursorElement.style.top = `${top}px`
-            // this.cursorElement.scrollIntoView()
-            })
-            // scroller.scrollTo(0, top)
-
-
+            this.contentEditableElement.dispatchEvent(changeEvent)
         }
 
         if (typeof render === "object" && "then" in render) {
@@ -918,8 +870,7 @@ class InputHandler {
      * @param {number} end
      */
     deleteContentBackward(_evt, start, end) {
-        console.log(this.document.currentLine)
-        if (this.document.currentLine.content === "​" || this.document.currentLine.content === "​\n") {
+        if (this.document.currentLine.content === "\n" || this.document.currentLine.content === zeroWidthWhitespace) {
             console.log("has zwsp")
             start -= 1
         }
@@ -1073,8 +1024,7 @@ export default class ContentEditorElement extends LitElement {
         this.contentEditor = new ContentEditor({
             eventPrefix: this.eventPrefix,
             content,
-            contentEditableElement: this.contentEditableElement,
-            cursorElement: this.cursorElement,
+            contentEditableElement: /** @type {HTMLElement} */ (this.contentEditableElement),
         })
 
         this.autofocus && this.focus()
@@ -1110,7 +1060,10 @@ export default class ContentEditorElement extends LitElement {
      * @param {FocusOptions} [options]
      */
     focus(options) {
-        this.contentEditableElement?.focus(options)
+        const contentEditableElement = this.contentEditableElement
+        if (contentEditableElement) {
+            contentEditableElement.focus(options)
+        }
     }
 
     get required() {
@@ -1135,15 +1088,18 @@ export default class ContentEditorElement extends LitElement {
     }
 
     get value() {
-        return this.contentEditor.content || ""
+        return this.contentEditor?.content || ""
     }
 
     /**
-     * @param {string | undefined | null} t
+     * @param {string | undefined | null} val
      */
-    set value(t) {
-        this.contentEditor.document.content = t || ""
-        this.internals.setFormValue(t || "")
+    set value(val) {
+        const editor = this.contentEditor
+        if (editor) {
+            editor.document.content = val || ""
+        }
+        this.internals.setFormValue(val || "")
         this.internals.setValidity({})
         this.render()
     }
@@ -1151,8 +1107,7 @@ export default class ContentEditorElement extends LitElement {
         return this.internals.form
     }
     setupEditor () {
-        this.contentEditableElement = this.querySelector("[contenteditable='true']") || document.createElement("div")
-        this.cursorElement = this.querySelector("[part~='cursor']")
+        this.contentEditableElement = /** @type {HTMLElement} */ (this.querySelector("[contenteditable='true']") || document.createElement("div"))
         this.contentEditableElement.setAttribute("contenteditable", "true")
         if (this.contentEditableElement && !this.contentEditableElement.isConnected) {
             this.append(this.contentEditableElement)
@@ -1171,7 +1126,6 @@ export default class ContentEditorElement extends LitElement {
  * @property {string} content
  * @property {string} [eventPrefix]
  * @property {HTMLElement} contentEditableElement - The element with `contenteditable="true"`
- * @property {HTMLElement} cursorElement - The element for scrolling the cursor into view.
  */
 
 export class ContentEditor {
@@ -1182,14 +1136,12 @@ export class ContentEditor {
         contentEditableElement,
         content,
         eventPrefix,
-        cursorElement,
     }) {
         this.eventPrefix = eventPrefix || "content-editor-"
 
         this.document = new ContentDocument({
             content,
             contentEditableElement,
-            cursorElement,
             eventPrefix: this.eventPrefix,
         })
         this.inputHandler = new InputHandler(this.document)
@@ -1202,6 +1154,7 @@ export class ContentEditor {
         this.render()
         this.contentEditableElement.addEventListener("beforeinput", this)
         this.contentEditableElement.addEventListener("keydown", this)
+        this.contentEditableElement.addEventListener("copy", this)
         document.addEventListener("selectionchange", this)
     }
 
@@ -1234,6 +1187,13 @@ export class ContentEditor {
                  break;
             case `${this.eventPrefix}change`:
                  this.handleChange(/** @type {CEChangeEvent} */ (evt))
+                 break;
+             case "copy":
+                const selection = document.getSelection();
+                 if (selection) {
+                    evt.preventDefault();
+                    /** @type {ClipboardEvent} */ (evt)?.clipboardData?.setData("text/plain", selection.toString().replaceAll(zeroWidthWhitespace, ""));
+                 }
                  break;
              default:
                  console.error("Not handling: ", evt.type)
@@ -1299,4 +1259,3 @@ export class ContentEditor {
     }
 }
 customElements.define("content-editor", ContentEditorElement);
-// export {a as Document, g as Editor, o as History, i as Selection, n as Toolbar, v as Upload};
