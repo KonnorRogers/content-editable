@@ -57,7 +57,6 @@ export const componentStyles = css`
       background: white;
     }
 
-
     [contenteditable="true"] > [part~="active-line"] {
       background-color: lightblue;
     }

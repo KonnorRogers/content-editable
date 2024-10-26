@@ -222,12 +222,12 @@ class SelectionHelper {
         }
 
         if (range.collapsed) {
-            const lineEl = range.endContainer?.parentElement?.closest("[part~='line']")
+            const lineEl = range.startContainer?.parentElement?.closest("[part~='line']")
             const children = this.contentEditableElement.children
             const index = Array.prototype.indexOf.call(children, lineEl)
             let lineNumber = null
             if (index >= 0) {
-                lineNumber = ((index - 1) / 2) + 1
+                lineNumber = (Math.max(0, (index - 1)) / 2) + 1
                 return lineNumber
             }
             return null
@@ -253,7 +253,9 @@ class SelectionHelper {
         if (!this.contentEditableElement) { return }
 
         this.documentRange = new RangeHelper(this.contentEditableElement,start,end);
-        const range = this.documentRange.toDOMRange();
+
+        let range = this.documentRange.toDOMRange();
+
         if (!range) {
             console.error("Failed to create range", {
                 start,
@@ -557,7 +559,8 @@ class ContentDocument {
     }
 
     render() {
-        const lines = this.content.split(/\n/).map((content, index) => {
+        const ary = this.content.split(/\n/)
+        const lines = ary.map((content, index) => {
             const lineNumber = (index + 1).toString()
             const gutter = `${this.gutterStart}${lineNumber}${this.gutterEnd}`
             const line = `${this.lineStart}${content + "\n"}${this.lineEnd}`
@@ -897,7 +900,6 @@ class InputHandler {
      * @param {number} end
      */
     deleteContentBackward(_evt, start, end) {
-        // I still haven't figured out a good alternative to the "zero width white space" problem when dealing with new lines.
         if (this.document.currentLine.content === "\n" || this.document.currentLine.content === zeroWidthWhitespace) {
             start -= 1
         }
@@ -1230,11 +1232,10 @@ export class ContentEditor {
      * @param {KeyboardEvent} evt
      */
     handleKeydown (evt) {
+        // TODO: Need to find a way to move past a ZWSP
         if (evt.key === "ArrowRight") {
-            console.log(this.document.currentLine)
         }
         if (evt.key === "ArrowLeft") {
-            console.log(this.document.currentLine)
         }
         const keyboardEvt = /** @type {KeyboardEvent} */ (evt)
         const keybinding = this.normalizeKeybinding(keyboardEvt)
