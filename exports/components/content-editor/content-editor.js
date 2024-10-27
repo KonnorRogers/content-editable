@@ -208,7 +208,8 @@ class SelectionHelper {
         return {
             start,
             end,
-            content: content.slice(start, end)
+            content: content.slice(start, end),
+            selectedContent: content.slice(start, offset),
         }
     }
 
@@ -222,7 +223,7 @@ class SelectionHelper {
         }
 
         if (range.collapsed) {
-            const lineEl = range.startContainer?.parentElement?.closest("[part~='line']")
+            const lineEl = range.endContainer?.parentElement?.closest("[part~='line']")
             const children = this.contentEditableElement.children
             const index = Array.prototype.indexOf.call(children, lineEl)
             let lineNumber = null
@@ -308,6 +309,7 @@ class SelectionHelper {
         let hasNode = false
 
         const rootNode = this.contentEditableElement.getRootNode()
+
         // Special handling of shadow dom in safari.
         if (typeof selection.getComposedRanges === "function" && rootNode instanceof ShadowRoot) {
             const staticRange = selection.getComposedRanges(rootNode)[0]
@@ -318,7 +320,6 @@ class SelectionHelper {
             range = selection.getRangeAt(0)
             hasNode = range.intersectsNode(this.contentEditableElement)
         }
-
 
         if (!range) { return }
 
@@ -349,6 +350,7 @@ class SelectionHelper {
 
         this.contentEditableElement.dispatchEvent(selectionChangeEvent)
     }
+
     get start() {
         return this.rangeHelper.start
     }
@@ -391,6 +393,7 @@ class SelectionHelper {
         return false
     }
 }
+
 class ContentDocumentHistory {
     static saveInterval = 1e3;
     constructor(t=500) {
@@ -1235,8 +1238,47 @@ export class ContentEditor {
     handleKeydown (evt) {
         // TODO: Need to find a way to move past a ZWSP
         if (evt.key === "ArrowRight") {
+            const {
+                content,
+                selectedContent
+            } = this.document.selection.lineAt(this.document.selection.end + 1)
+
+            // When its a blank line, handle it slightly differently.
+            if (content === "\n" + zeroWidthWhitespace) {
+            } else {
+            }
+
+            console.log({
+                content,
+                isNewLine: content === "\n",
+                isZWSP: content === zeroWidthWhitespace,
+                isBlank: content === "",
+            })
+
+            // this.document.select(this.document.selection.start + 2, this.document.selection.start + 2)
+            // evt.preventDefault()
         }
         if (evt.key === "ArrowLeft") {
+            const {
+                content,
+                selectedContent
+            } = this.document.selection.lineAt(this.document.selection.end - 1)
+
+            // When its a blank line, handle it slightly differently.
+            if (content === "\n" + zeroWidthWhitespace) {
+            } else {
+            }
+
+            console.log({
+                content,
+                isNewLine: content === "\n",
+                isZWSP: content === zeroWidthWhitespace,
+                isBlank: content === "",
+            })
+            // if (content === "\n") {
+                // this.document.select(this.document.selection.start - 2, this.document.selection.start - 2)
+                // evt.preventDefault()
+            // }
         }
         const keyboardEvt = /** @type {KeyboardEvent} */ (evt)
         const keybinding = this.normalizeKeybinding(keyboardEvt)
