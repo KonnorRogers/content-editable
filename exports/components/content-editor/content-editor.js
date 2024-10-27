@@ -567,6 +567,7 @@ class ContentDocument {
             return `${gutter}${line}`
         })
 
+        console.log(ary)
         this.contentEditableElement.textContent = ""
         this.contentEditableElement.innerHTML = lines.join("")
     }
