@@ -1239,46 +1239,25 @@ export class ContentEditor {
         // TODO: Need to find a way to move past a ZWSP
         if (evt.key === "ArrowRight") {
             const {
-                content,
                 selectedContent
             } = this.document.selection.lineAt(this.document.selection.end + 1)
 
             // When its a blank line, handle it slightly differently.
-            if (content === "\n" + zeroWidthWhitespace) {
-            } else {
+            if (selectedContent === "") {
+                evt.preventDefault()
+                this.document.select(this.document.selection.start + 2, this.document.selection.start + 2)
             }
-
-            console.log({
-                content,
-                isNewLine: content === "\n",
-                isZWSP: content === zeroWidthWhitespace,
-                isBlank: content === "",
-            })
-
-            // this.document.select(this.document.selection.start + 2, this.document.selection.start + 2)
-            // evt.preventDefault()
         }
         if (evt.key === "ArrowLeft") {
             const {
-                content,
                 selectedContent
             } = this.document.selection.lineAt(this.document.selection.end - 1)
 
             // When its a blank line, handle it slightly differently.
-            if (content === "\n" + zeroWidthWhitespace) {
-            } else {
+            if (selectedContent === "") {
+                this.document.select(this.document.selection.start - 2, this.document.selection.start - 2)
+                evt.preventDefault()
             }
-
-            console.log({
-                content,
-                isNewLine: content === "\n",
-                isZWSP: content === zeroWidthWhitespace,
-                isBlank: content === "",
-            })
-            // if (content === "\n") {
-                // this.document.select(this.document.selection.start - 2, this.document.selection.start - 2)
-                // evt.preventDefault()
-            // }
         }
         const keyboardEvt = /** @type {KeyboardEvent} */ (evt)
         const keybinding = this.normalizeKeybinding(keyboardEvt)
