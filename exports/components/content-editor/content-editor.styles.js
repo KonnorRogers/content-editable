@@ -8,7 +8,8 @@ export const componentStyles = css`
       display: block;
     }
     [contenteditable="true"] {
-      caret-color: var(--color-link);
+      caret-color: black;
+      color: rgb(60, 60, 60);
       text-align: start;
       margin: 0;
       overflow: auto;
@@ -58,6 +59,6 @@ export const componentStyles = css`
     }
 
     [contenteditable="true"] > [part~="active-line"] {
-      background-color: lightblue;
+      background-color: rgba(200, 240, 255, 1);
     }
 `
