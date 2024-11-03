@@ -2,8 +2,6 @@
 ---
 
 
-<content-editable hidden></content-editable>
-
 ## Examples
 
 <light-preview
@@ -11,7 +9,7 @@
   script-scope="shadow-dom"
 >
   <script slot="code" type="text/plain">
-    <content-editable></content-editable>
+    <content-editor></content-editor>
   </script>
 </light-preview>
 

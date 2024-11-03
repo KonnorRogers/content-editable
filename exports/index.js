@@ -1,1 +1,1 @@
-export { default as ContentEditable } from "./components/content-editable/content-editable-register.js"
+export { default as ContentEditorElement } from "./components/content-editor/content-editor-register.js"
