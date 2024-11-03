@@ -242,7 +242,8 @@ class SelectionHelper {
      */
     setActiveLineNumber (lineNumber) {
       Array.prototype.forEach.call(this.contentEditableElement.children, (el) => el.part.remove("active-line"))
-      this.contentEditableElement.children[((lineNumber - 1) * 2) + 1].part.add("active-line")
+      const child = this.contentEditableElement.children[((lineNumber - 1) * 2) + 1]
+      child.part.add("active-line")
     }
 
     /**
@@ -315,7 +316,17 @@ class SelectionHelper {
             const staticRange = selection.getComposedRanges(rootNode)[0]
             if (!staticRange) { return }
 
-            hasNode = selection.containsNode(this.contentEditableElement)
+            /**
+             * @type {Node | Element | null | undefined}
+             */
+            let parent = staticRange.startContainer
+            while ((parent = parent?.parentElement)) {
+                if (parent === this.contentEditableElement) {
+                    hasNode = true
+                    break;
+                }
+            }
+            range = staticRange
         } else {
             range = selection.getRangeAt(0)
             hasNode = range.intersectsNode(this.contentEditableElement)
@@ -570,7 +581,6 @@ class ContentDocument {
             return `${gutter}${line}`
         })
 
-        console.log(ary)
         this.contentEditableElement.textContent = ""
         this.contentEditableElement.innerHTML = lines.join("")
     }
