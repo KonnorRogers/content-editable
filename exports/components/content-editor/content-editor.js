@@ -344,7 +344,7 @@ class SelectionHelper {
 
             const lineNumber = this.getCurrentLineNumber(this.rangeHelper.toDOMRange())
 
-            if (lineNumber) {
+            if (lineNumber != null) {
                 this.setActiveLineNumber(lineNumber)
             }
         }
@@ -1181,6 +1181,7 @@ export class ContentEditor {
 
         this.render()
         this.contentEditableElement.addEventListener("beforeinput", this)
+        this.contentEditableElement.addEventListener("focusin", this)
         this.contentEditableElement.addEventListener("keydown", this)
         this.contentEditableElement.addEventListener("copy", this)
         document.addEventListener("selectionchange", this)
@@ -1222,6 +1223,18 @@ export class ContentEditor {
                     evt.preventDefault();
                     /** @type {ClipboardEvent} */ (evt)?.clipboardData?.setData("text/plain", selection.toString().replaceAll(zeroWidthWhitespace, ""));
                  }
+                 break;
+             case "focusin":
+                 setTimeout(() => {
+                     requestAnimationFrame(() => {
+                         console.log("focusin")
+                         const lineNumber = this.document.selection.getCurrentLineNumber()
+
+                         if (lineNumber != null) {
+                            this.document.selection.setActiveLineNumber(lineNumber)
+                         }
+                     })
+                 })
                  break;
              default:
                  console.error("Not handling: ", evt.type)
