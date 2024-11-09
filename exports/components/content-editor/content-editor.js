@@ -195,23 +195,30 @@ class SelectionHelper {
     previousLine() {
         const {content} = this.document
         const offset = Math.max(content.lastIndexOf("\n", this.start - 1), 0);
-        return this.lineAt(offset)
+        return Object.assign(this.lineAt(offset), { selectedContent: "" })
     }
 
     nextLine () {
         const {content} = this.document
-        const offset = Math.max(content.lastIndexOf("\n", this.start) + 1, 0);
-        return this.lineAt(offset)
+        const offset = Math.max(content.lastIndexOf("\n", this.end) + 1, 0);
+        return Object.assign(this.lineAt(offset), { selectedContent: "" })
     }
 
-    /**
-     * @param {number} num
-     */
-    moveLines (num) {
-        // Take the current line and the current users offset, find the offset of previous line, and make sure the offsets line up.
-        console.log(this.previousLine())
-        console.log(this.nextLine())
-        // console
+    moveUp () {
+        const currentLine = this.currentLine()
+        const previousLine = this.lineAt(this.document.selection.start - 1)
+
+        console.log({ currentLine, previousLine })
+        const offset = previousLine.start + Math.min(previousLine.content.length - 1, currentLine.selectedContent.length - 1)
+        this.select({ start: offset, end: offset })
+    }
+
+    moveDown () {
+        const currentLine = this.currentLine()
+        const nextLine = this.lineAt(this.end + 1)
+
+        const offset = nextLine.start + Math.min(nextLine.content.length - 1, currentLine.selectedContent.length - 1)
+        this.select({ start: offset, end: offset })
     }
 
     /**
@@ -1279,12 +1286,12 @@ export class ContentEditor {
     handleKeydown (evt) {
         if (evt.key === "ArrowUp") {
             evt.preventDefault()
-            this.document.selection.moveLines(-1)
+            this.document.selection.moveUp()
         }
 
         if (evt.key === "ArrowDown") {
             evt.preventDefault()
-            this.document.selection.moveLines(1)
+            this.document.selection.moveDown()
         }
 
         if (evt.key === "ArrowRight") {
