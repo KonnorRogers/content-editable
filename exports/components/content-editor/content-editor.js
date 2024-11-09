@@ -205,19 +205,29 @@ class SelectionHelper {
     }
 
     moveUp () {
-        const currentLine = this.currentLine()
-        const previousLine = this.lineAt(this.document.selection.start - 1)
+        if ((this.getCurrentLineNumber() || 1) <= 1) {
+            this.select({ start: 0, end: 0 })
+            return
+        }
 
-        console.log({ currentLine, previousLine })
-        const offset = previousLine.start + Math.min(previousLine.content.length - 1, currentLine.selectedContent.length - 1)
+        const currentLine = this.currentLine()
+        const prevLineOffset = (this.document.selection.start - currentLine.selectedContent.length) - 1
+        const previousLine = this.lineAt(Math.max(prevLineOffset, 0))
+
+        const offset = (prevLineOffset - previousLine.content.length) + Math.max(Math.min(previousLine.content.length, currentLine.selectedContent.length), 0)
         this.select({ start: offset, end: offset })
     }
 
     moveDown () {
         const currentLine = this.currentLine()
-        const nextLine = this.lineAt(this.end + 1)
+        if ((this.getCurrentLineNumber() || 0) > this.document.content.split("\n").length) {
+            this.select({ start: currentLine.end, end: currentLine.end })
+            return
+        }
 
-        const offset = nextLine.start + Math.min(nextLine.content.length - 1, currentLine.selectedContent.length - 1)
+        const nextLine = this.lineAt(((this.document.selection.end - currentLine.selectedContent.length) + currentLine.content.length) + 1)
+
+        const offset = nextLine.start + Math.min(nextLine.content.length, currentLine.selectedContent.length)
         this.select({ start: offset, end: offset })
     }
 
