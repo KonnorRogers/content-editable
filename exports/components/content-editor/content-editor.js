@@ -191,10 +191,27 @@ class SelectionHelper {
     currentLine() {
         return this.lineAt(this.end)
     }
+
     previousLine() {
         const {content} = this.document
         const offset = Math.max(content.lastIndexOf("\n", this.start - 1), 0);
         return this.lineAt(offset)
+    }
+
+    nextLine () {
+        const {content} = this.document
+        const offset = Math.max(content.lastIndexOf("\n", this.start) + 1, 0);
+        return this.lineAt(offset)
+    }
+
+    /**
+     * @param {number} num
+     */
+    moveLines (num) {
+        // Take the current line and the current users offset, find the offset of previous line, and make sure the offsets line up.
+        console.log(this.previousLine())
+        console.log(this.nextLine())
+        // console
     }
 
     /**
@@ -266,6 +283,9 @@ class SelectionHelper {
             return
         }
 
+        /**
+         * TODO: We should cache these checks by moving them to a ResizeObserver.
+         */
         const caretRect = range.getBoundingClientRect();
         const containerRect = this.contentEditableElement.getBoundingClientRect();
 
@@ -300,16 +320,18 @@ class SelectionHelper {
 
         this.update()
     }
-    update = () => {
+
+    updateRange () {
         let range = null
 
-        const selection = document.getSelection()
+        const rootNode = this.contentEditableElement.getRootNode()
+        // @ts-expect-error
+        const selection = rootNode.getSelection?.() || document.getSelection()
 
         if (!selection) { return }
+        if (!this.contentEditableElement)  { return }
 
-        let hasNode = false
-
-        const rootNode = this.contentEditableElement.getRootNode()
+        let hasNode = true
 
         // Special handling of shadow dom in safari.
         if (typeof selection.getComposedRanges === "function" && rootNode instanceof ShadowRoot) {
@@ -334,10 +356,6 @@ class SelectionHelper {
 
         if (!range) { return }
 
-        const rangeHelper = this.rangeHelper;
-
-        if (!this.contentEditableElement)  { return }
-
         if (hasNode) {
             this.rangeHelper = RangeHelper.fromDOMRange(range, this.contentEditableElement)
             this.selection = this.document.content.slice(this.start, this.end)
@@ -346,9 +364,14 @@ class SelectionHelper {
 
             if (lineNumber != null) {
                 this.setActiveLineNumber(lineNumber)
+                this.currentLineNumber = lineNumber
             }
         }
+    }
+    update = () => {
+        const rangeHelper = this.rangeHelper;
 
+        this.updateRange()
 
         if (this.rangeHelper.isEqual(rangeHelper)) { return }
 
@@ -1225,16 +1248,11 @@ export class ContentEditor {
                  }
                  break;
              case "focusin":
-                 setTimeout(() => {
-                     requestAnimationFrame(() => {
-                         console.log("focusin")
-                         const lineNumber = this.document.selection.getCurrentLineNumber()
-
-                         if (lineNumber != null) {
-                            this.document.selection.setActiveLineNumber(lineNumber)
-                         }
-                     })
-                 })
+                 // setTimeout(() => {
+                 //     requestAnimationFrame(() => {
+                 //         this.document.selection.updateRange()
+                 //     })
+                 // })
                  break;
              default:
                  console.error("Not handling: ", evt.type)
@@ -1249,9 +1267,9 @@ export class ContentEditor {
     }
 
     /**
-     * @param {Event} _evt
+     * @param {Event} evt
      */
-    handleSelectionChange (_evt) {
+    handleSelectionChange (evt) {
         this.document?.selection.update()
     }
 
@@ -1259,7 +1277,16 @@ export class ContentEditor {
      * @param {KeyboardEvent} evt
      */
     handleKeydown (evt) {
-        // TODO: Need to find a way to move past a ZWSP
+        if (evt.key === "ArrowUp") {
+            evt.preventDefault()
+            this.document.selection.moveLines(-1)
+        }
+
+        if (evt.key === "ArrowDown") {
+            evt.preventDefault()
+            this.document.selection.moveLines(1)
+        }
+
         if (evt.key === "ArrowRight") {
             const {
                 selectedContent
@@ -1278,7 +1305,8 @@ export class ContentEditor {
 
             // When its a blank line, handle it slightly differently.
             if (selectedContent === "") {
-                this.document.select(this.document.selection.start - 2, this.document.selection.start - 2)
+                const offset = Math.max(0, this.document.selection.start - 2)
+                this.document.select(offset, offset)
                 evt.preventDefault()
             }
         }
