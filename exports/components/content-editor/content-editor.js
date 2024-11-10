@@ -4,6 +4,7 @@ import {componentStyles} from './content-editor.styles.js'
 import { baseStyles } from "../../styles/base.styles.js";
 
 const zeroWidthWhitespace = "​"
+// const zeroWidthWhitespace = " "
 
 class BaseEvent extends CustomEvent {
     /**
@@ -205,30 +206,34 @@ class SelectionHelper {
     }
 
     moveUp () {
-        if ((this.getCurrentLineNumber() || 1) <= 1) {
-            this.select({ start: 0, end: 0 })
-            return
-        }
+        // if ((this.getCurrentLineNumber() || 1) <= 1) {
+        //     this.select({ start: 0, end: 0 })
+        //     return
+        // }
 
-        const currentLine = this.currentLine()
-        const prevLineOffset = (this.document.selection.start - currentLine.selectedContent.length) - 1
-        const previousLine = this.lineAt(Math.max(prevLineOffset, 0))
+        // const currentLine = this.currentLine()
+        // const prevLineOffset = (this.document.selection.start - currentLine.selectedContent.length)
+        // const previousLine = this.lineAt(Math.max(prevLineOffset, 1))
 
-        const offset = (prevLineOffset - previousLine.content.length) + Math.max(Math.min(previousLine.content.length, currentLine.selectedContent.length), 0)
-        this.select({ start: offset, end: offset })
+        // console.log({ currentLine, length: currentLine.selectedContent.length, prevLength: previousLine.content.length })
+
+        // const offset = Math.max(prevLineOffset - previousLine.content.length)//  + Math.max(Math.min(previousLine.content.length, currentLine.selectedContent.length), 0)
+        // this.select({ start: offset, end: offset })
     }
 
     moveDown () {
-        const currentLine = this.currentLine()
-        if ((this.getCurrentLineNumber() || 0) > this.document.content.split("\n").length) {
-            this.select({ start: currentLine.end, end: currentLine.end })
-            return
-        }
+        // const currentLine = this.currentLine()
+        // if ((this.getCurrentLineNumber() || 1) >= this.document.content.split("\n").length) {
+        //     this.select({ start: currentLine.end, end: currentLine.end })
+        //     return
+        // }
 
-        const nextLine = this.lineAt(((this.document.selection.end - currentLine.selectedContent.length) + currentLine.content.length) + 1)
+        // const nextLine = this.lineAt(((this.document.selection.end - currentLine.selectedContent.length) + currentLine.content.length) + 1)
 
-        const offset = nextLine.start + Math.min(nextLine.content.length, currentLine.selectedContent.length)
-        this.select({ start: offset, end: offset })
+        // let offset = nextLine.start + 1 + Math.min(nextLine.content.length, currentLine.selectedContent.length)
+        // offset = Math.min(offset, this.document.content.length)
+
+        // this.select({ start: offset, end: offset })
     }
 
     /**
@@ -1295,12 +1300,12 @@ export class ContentEditor {
      */
     handleKeydown (evt) {
         if (evt.key === "ArrowUp") {
-            evt.preventDefault()
+            // evt.preventDefault()
             this.document.selection.moveUp()
         }
 
         if (evt.key === "ArrowDown") {
-            evt.preventDefault()
+            // evt.preventDefault()
             this.document.selection.moveDown()
         }
 
