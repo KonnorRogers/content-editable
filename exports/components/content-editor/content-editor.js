@@ -206,34 +206,48 @@ class SelectionHelper {
     }
 
     moveUp () {
-        // if ((this.getCurrentLineNumber() || 1) <= 1) {
-        //     this.select({ start: 0, end: 0 })
-        //     return
-        // }
+        if ((this.getCurrentLineNumber() || 1) <= 1) {
+            this.select({ start: 0, end: 0 })
+            return
+        }
 
-        // const currentLine = this.currentLine()
-        // const prevLineOffset = (this.document.selection.start - currentLine.selectedContent.length)
-        // const previousLine = this.lineAt(Math.max(prevLineOffset, 1))
+        const currentLine = this.currentLine()
+        const currentLineOffset = currentLine.selectedContent.length + 1
+        const prevLineOffset = (this.document.selection.start - currentLineOffset) // Brings us to beginning of line
+        const previousLine = this.lineAt(Math.max(prevLineOffset, 0))
+        console.log(previousLine.content)
 
-        // console.log({ currentLine, length: currentLine.selectedContent.length, prevLength: previousLine.content.length })
+        let inc = 1
 
-        // const offset = Math.max(prevLineOffset - previousLine.content.length)//  + Math.max(Math.min(previousLine.content.length, currentLine.selectedContent.length), 0)
-        // this.select({ start: offset, end: offset })
+        if (previousLine.content.startsWith(zeroWidthWhitespace)) {
+            inc = 2
+        }
+
+        const offset = prevLineOffset - previousLine.content.length + inc// + Math.min(currentLineOffset, previousLine.content.length)
+        this.select({ start: offset, end: offset })
     }
 
     moveDown () {
-        // const currentLine = this.currentLine()
-        // if ((this.getCurrentLineNumber() || 1) >= this.document.content.split("\n").length) {
-        //     this.select({ start: currentLine.end, end: currentLine.end })
-        //     return
-        // }
+        const currentLine = this.currentLine()
+        const currentLineNumber = (this.getCurrentLineNumber() || 1)
+        if (currentLineNumber >= this.document.content.split("\n").length) {
+            this.select({ start: currentLine.end, end: currentLine.end})
+            return
+        }
 
-        // const nextLine = this.lineAt(((this.document.selection.end - currentLine.selectedContent.length) + currentLine.content.length) + 1)
+        let currentLineOffset = Math.max(currentLine.selectedContent.length - 1, 0)
 
-        // let offset = nextLine.start + 1 + Math.min(nextLine.content.length, currentLine.selectedContent.length)
-        // offset = Math.min(offset, this.document.content.length)
+        let nextLineOffset = (this.document.selection.start - currentLineOffset + Math.max(currentLine.content.length, 2)) // Brings us to beginning of next line
 
-        // this.select({ start: offset, end: offset })
+        const nextLine = this.lineAt(Math.min(nextLineOffset, this.document.content.length))
+
+        console.log({
+            currentLineOffset,
+            nextLineLength: nextLine.content.length
+        })
+
+        const offset = nextLineOffset // + Math.max(Math.min(nextLine.content.length, currentLineOffset), 0)
+        this.select({ start: offset, end: offset })
     }
 
     /**
@@ -1300,12 +1314,12 @@ export class ContentEditor {
      */
     handleKeydown (evt) {
         if (evt.key === "ArrowUp") {
-            // evt.preventDefault()
+            evt.preventDefault()
             this.document.selection.moveUp()
         }
 
         if (evt.key === "ArrowDown") {
-            // evt.preventDefault()
+            evt.preventDefault()
             this.document.selection.moveDown()
         }
 
