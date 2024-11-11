@@ -235,9 +235,9 @@ class SelectionHelper {
             return
         }
 
-        let currentLineOffset = Math.max(currentLine.selectedContent.length - 1, 0)
+        let currentLineOffset = Math.max(currentLine.selectedContent.length, 0)
 
-        let nextLineOffset = (this.document.selection.start - currentLineOffset + Math.max(currentLine.content.length, 2)) // Brings us to beginning of next line
+        let nextLineOffset = (this.document.selection.start - currentLineOffset + Math.max(currentLine.content.length, 1)) + 1 // Brings us to beginning of next line
 
         const nextLine = this.lineAt(Math.min(nextLineOffset, this.document.content.length))
 
@@ -246,7 +246,26 @@ class SelectionHelper {
             nextLineLength: nextLine.content.length
         })
 
-        const offset = nextLineOffset // + Math.max(Math.min(nextLine.content.length, currentLineOffset), 0)
+        let inc = 0
+
+        // if (currentLineOffset < nextLine.content.length) {
+        //     inc = currentLineOffset
+
+        //     if (currentLine.content && currentLine.content.startsWith(zeroWidthWhitespace)) {
+        //         inc -= 1
+        //     }
+        // }
+
+        // if (currentLineOffset > nextLine.content.length) {
+        //     inc = Math.max(nextLine.content.length - 1, 0)
+        // }
+        // if (nextLine.content.length > currentLineOffset) {
+        //     inc = currentLineOffset
+        // } else {
+        //     inc = nextLine.content.length - 2
+        // }
+
+        const offset = nextLineOffset + inc
         this.select({ start: offset, end: offset })
     }
 
